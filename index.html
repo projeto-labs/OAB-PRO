@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -275,7 +277,7 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
 <!-- ==================== NOVA EDIÇÃO ==================== -->
 <div class="view" id="page-nova-edicao">
   <div class="section-title">Importar nova edição</div>
-  <p class="section-sub">Cole os dados da planilha no formato abaixo ou use o modelo de importação</p>
+  <p class="section-sub">Anexe os dois arquivos da edição — o painel lê, calcula e classifica tudo automaticamente</p>
 
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;">
     <div style="font-size:14px;font-weight:600;margin-bottom:16px;">Informações da edição</div>
@@ -288,45 +290,50 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--tex
         <label>Data de realização *</label>
         <input type="date" id="new-data">
       </div>
-      <div class="field-group">
-        <label>Número de questões *</label>
-        <input type="number" id="new-nq" placeholder="ex: 80" min="10" max="200">
-      </div>
-      <div class="field-group">
-        <label>Total de inscritos</label>
-        <input type="number" id="new-inscritos" placeholder="ex: 250">
-      </div>
     </div>
   </div>
 
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;">
-    <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Gabarito</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Uma letra por questão, separadas por vírgula ou espaço. Ex: <code>B,D,C,A,D...</code></div>
-    <textarea id="new-gabarito" style="width:100%;height:80px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:monospace;background:var(--bg);color:var(--text);resize:vertical;outline:none;" placeholder="B,D,C,D,A,A,B,C,A,D,..."></textarea>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px;">📄 Arquivo de questões (.docx)</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">O Word com as 80 questões do simulado, no formato padrão (Q01-08 Ética, Q09-10 Filosofia...).</div>
+      <input type="file" id="file-questoes" accept=".docx" style="display:none;" onchange="handleFileQuestoes(this)">
+      <label for="file-questoes" id="label-questoes" style="display:block;text-align:center;padding:18px;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2);">
+        Clique para selecionar o .docx
+      </label>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px;">📊 Planilha de resultados (.xlsx)</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">A planilha exportada com aba "Resultados" contendo gabarito e respostas dos participantes.</div>
+      <input type="file" id="file-planilha" accept=".xlsx,.xls" style="display:none;" onchange="handleFilePlanilha(this)">
+      <label for="file-planilha" id="label-planilha" style="display:block;text-align:center;padding:18px;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2);">
+        Clique para selecionar o .xlsx
+      </label>
+    </div>
   </div>
 
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;">
-    <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Respostas dos participantes</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Uma linha por participante. Formato: <code>respostas separadas por vírgula</code> (mesma ordem das questões). Máximo 500 participantes.</div>
-    <textarea id="new-respostas" style="width:100%;height:140px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:monospace;background:var(--bg);color:var(--text);resize:vertical;outline:none;" placeholder="B,A,C,D,A,B,...&#10;D,D,C,B,A,A,...&#10;..."></textarea>
+  <div id="preview-box" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px;">Pré-visualização</div>
+    <div id="preview-content" style="font-size:13px;color:var(--text2);line-height:1.8;"></div>
   </div>
 
   <div id="import-msg" style="display:none;padding:12px 16px;border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px;"></div>
 
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:0;">
-    <button class="upload-btn" onclick="importarEdicao()" style="padding:11px 28px;font-size:14px;">Importar edição</button>
+    <button class="upload-btn" id="btn-importar" onclick="importarEdicaoArquivos()" style="padding:11px 28px;font-size:14px;opacity:0.5;pointer-events:none;">Importar edição</button>
     <button id="btn-exportar" onclick="exportarHTML()" style="display:none;padding:11px 28px;font-size:14px;background:#1a7a4a;border:none;border-radius:6px;color:white;font-weight:600;cursor:pointer;">⬇ Baixar arquivo atualizado</button>
   </div>
 
   <div style="background:var(--surface2);border-radius:var(--radius);padding:20px;margin-top:28px;">
-    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Como exportar do Excel/Planilha</div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Como funciona</div>
     <div style="font-size:12px;color:var(--text2);line-height:1.8;">
-      1. Abra a aba <strong>Resultados</strong> da planilha.<br>
-      2. Copie a linha do <strong>GABARITO</strong> (colunas Q01 em diante) → cole no campo Gabarito acima.<br>
-      3. Copie as linhas dos participantes <strong>Presentes</strong> (apenas as respostas, colunas Q01 em diante) → cole no campo Respostas.<br>
-      4. Preencha os demais campos e clique em <strong>Importar edição</strong>.<br>
-      5. Clique em <strong>⬇ Baixar arquivo atualizado</strong> → salve o arquivo <code>index.html</code>.<br>
-      6. No GitHub, abra seu repositório → clique no arquivo <code>index.html</code> → ícone de lápis (editar) → aba <strong>Upload file</strong> → substitua e clique em <strong>Commit changes</strong>. Em ~1 minuto o painel online estará atualizado.
+      1. Anexe o <strong>arquivo .docx</strong> com as questões da nova edição (mesmo padrão de faixas: Q01-08 Ética, Q09-10 Filosofia, etc.).<br>
+      2. Anexe a <strong>planilha .xlsx</strong> de resultados, com o gabarito na linha 2 e as respostas dos participantes nas linhas seguintes.<br>
+      3. Preencha nome e data da edição, confira a pré-visualização e clique em <strong>Importar edição</strong>.<br>
+      4. O painel calcula acertos, médias, distribuição e já classifica cada questão por <strong>disciplina</strong> automaticamente. O campo <strong>tema</strong> específico fica marcado como "A definir" — edite manualmente depois na aba Disciplinas, se desejar.<br>
+      5. Clique em <strong>⬇ Baixar arquivo atualizado</strong> → salve como <code>index.html</code>.<br>
+      6. No GitHub, abra o repositório → clique no arquivo <code>index.html</code> → ícone de lápis → <strong>Upload file</strong> → substitua e clique em <strong>Commit changes</strong>. Em ~1 minuto o painel online estará atualizado.
     </div>
   </div>
 </div>
@@ -391,7 +398,7 @@ const DISC_DIST = {
 
 const TEMA_MAP = {
   1: ["Processo disciplinar / Representação", "Estrutura da OAB / Conselhos", "Recursos disciplinares / Efeito suspensivo", "Publicidade e propaganda profissional", "Sanções disciplinares / Reabilitação", "Impedimento e conflito de interesses", "Mandato / Procuração", "Honorários advocatícios", "Contratualismo / Hobbes", "Teoria da Justiça / Aristóteles", "Estrutura do Judiciário / CNJ", "Emenda constitucional / Requisitos", "Estado de defesa e estado de sítio", "Processo legislativo / Imunidade parlamentar", "Controle de constitucionalidade", "Tribunal de Contas da União / TCU", "Direitos indígenas / Terras indígenas", "Responsabilidade do Estado / Direito à saúde", "Gastos de campanha eleitoral", "Coligações e alianças partidárias", "Cooperação jurídica internacional / Mercosul", "Direito Internacional Privado / Família", "Precatórios / Execução contra a Fazenda", "Lei Orçamentária Anual / LOA", "Competência tributária / Contribuições sociais", "ICMS / Anterioridade tributária", "Jurisprudência tributária / STF", "Repetição do indébito tributário", "Concessão de serviço público / Tributação", "Licitação / Concessão de rodovia", "Homicídio praticado por agente estatal", "Empresa pública / Precatórios", "Servidor público / Substituição temporária", "Responsabilidade civil do Estado / Obra pública", "Competência municipal / Meio ambiente", "Ação civil pública / Meio ambiente", "Responsabilidade civil / Produto defeituoso", "Responsabilidade civil / Transporte aéreo", "Família / Separação e novo casamento", "Contratos / Empreitada", "Direito de família / Regime de bens", "Responsabilidade civil / Acidente de trânsito", "Guarda e tutela / Falecimento de genitor", "Adoção / Guarda judicial", "Publicidade comparativa", "Contrato de consumo / Pagamento", "Títulos de crédito / Letra de câmbio e endosso", "Recuperação judicial / Administrador judicial", "Empresário individual / Incapacidade civil", "Títulos de crédito / Duplicata", "Legitimidade passiva / Substituição processual", "Cumulação de pedidos e competência", "Execução de título extrajudicial", "Apelação / Desistência do recurso", "Gratuidade de justiça", "Impedimento e suspeição do advogado", "Funcionário público / Peculato", "Erro de tipo / Aberratio ictus", "Extinção da punibilidade / Prescrição", "Furto / Circunstâncias e qualificadoras", "Falsidade ideológica", "Concussão e corrupção passiva", "", "Incidente de insanidade mental", "Ação penal privada / Perempção", "Crime tributário / Resposta à acusação", "Lesão corporal / Representação", "Tribunal do Júri / Quesitação", "Salário-maternidade / Regime Geral", "Salário e remuneração / Gorjeta", "Vale-transporte", "", "Transferência de empregado", "Licenças / Casamento e luto", "Jornada / Empregada doméstica", "Rescisão / Plano de saúde como salário", "Execução trabalhista / Liquidação de sentença", "Competência Justiça do Trabalho / INSS", "Extinção do processo / Litispendência", "Menor aprendiz / Rescisão contratual"],
-  2: ["Processo disciplinar / Representação", "Estrutura da OAB / Conselhos", "Recursos disciplinares / Efeito suspensivo", "Publicidade e propaganda profissional", "Sanções disciplinares / Reabilitação", "Impedimento e conflito de interesses", "Mandato / Procuração", "Honorários advocatícios", "Lacunas e completude do ordenamento / Bobbio", "Princípios e regras / Dworkin", "Controle de constitucionalidade / Recepção", "Súmula vinculante / Administração pública", "PEC / Cláusulas pétreas / Voto obrigatório", "Nacionalidade / Naturalização", "Mutação constitucional / ADI", "Imunidade parlamentar / Foro por prerrogativa", "Greve de policiais militares", "Refugiados / Reunificação familiar", "Coligações para eleição municipal", "Fidelidade partidária / Deputada estadual", "Revalidação de diploma estrangeiro", "Imunidade de jurisdição / Embaixada", "Imunidade tributária / Entidade privada", "Lei Orçamentária / Créditos adicionais", "IPTU / Prescrição e execução fiscal", "ICMS / Parcelamento de débito", "IPTU / Progressividade de alíquotas", "Lançamento tributário / Retroatividade", "Execução fiscal / Seguro-garantia", "Servidor público / Acumulação de cargos", "Estabilidade / Avaliação de desempenho", "Concessão de serviço público / Subconcessão", "Concessão / Responsabilidade civil concessionária", "Aposentadoria voluntária / TCU", "Ação civil pública / Legitimidade ativa", "Cadastro Ambiental Rural / CAR", "Estabelecimento comercial / Trespasse", "Consumidor / Vícios do produto / Prazo", "Responsabilidade civil / Res in custodia", "Responsabilidade civil / Caso fortuito", "Contratos / Comodato", "Direito real / Passagem forçada", "Guarda / Dissolução de união estável", "Adoção unilateral / Herança", "Score de crédito / LGPD", "Transporte aéreo / Extravio de bagagem", "Trespasse / Sucessão de dívidas", "Nota promissória / Aval", "Falência / Ação de execução em curso", "Nome empresarial / Firma individual", "Competência / Exceção de incompetência", "Prazos processuais / Contestação", "Ação coletiva / Dano moral coletivo", "Juizados Especiais / Competência", "Cumprimento de sentença / Multa e honorários", "Juizado Especial Cível / Recurso inominado", "Homicídio / Feminicídio", "Peculato / Funcionário de sociedade de economia mista", "Livramento condicional / Revogação", "Concurso de crimes / Detração penal", "Execução penal / Remição de pena", "Crime continuado / Concurso de crimes", "ECA / Contravenção penal / Adolescente", "Júri / Confissão e qualificadoras", "Crimes sexuais / Ação penal pública", "Prisão preventiva / Excesso de prazo", "Furto / Reincidência e atenuantes", "Prescrição / Causas interruptivas", "Salário-família e salário-maternidade", "Pensão por morte / Regime Geral", "Trabalho infantil / Aprendiz", "", "Equiparação salarial", "Estabilidade / Doença ocupacional", "Teletrabalho e trabalho externo / Jornada", "Citação / Notificação citatória trabalhista", "Revelia trabalhista / Efeitos", "Dispensa por justa causa / Prova documental", "Fiscalização do trabalho / Auto de infração", "Rescisão / Recolhimentos previdenciários"]
+  2: [["Processo disciplinar / Representação", "Estrutura da OAB / Conselhos", "Recursos disciplinares / Efeito suspensivo", "Publicidade e propaganda profissional", "Sanções disciplinares / Reabilitação", "Impedimento e conflito de interesses", "Mandato / Procuração", "Honorários advocatícios", "Lacunas e completude do ordenamento / Bobbio", "Princípios e regras / Dworkin", "Controle de constitucionalidade / Recepção", "Súmula vinculante / Administração pública", "PEC / Cláusulas pétreas / Voto obrigatório", "Nacionalidade / Naturalização", "Mutação constitucional / ADI", "Imunidade parlamentar / Foro por prerrogativa", "Greve de policiais militares", "Refugiados / Reunificação familiar", "Coligações para eleição municipal", "Fidelidade partidária / Deputada estadual", "Revalidação de diploma estrangeiro", "Imunidade de jurisdição / Embaixada", "Imunidade tributária / Entidade privada", "Lei Orçamentária / Créditos adicionais", "IPTU / Prescrição e execução fiscal", "ICMS / Parcelamento de débito", "IPTU / Progressividade de alíquotas", "Lançamento tributário / Retroatividade", "Execução fiscal / Seguro-garantia", "Servidor público / Acumulação de cargos", "Estabilidade / Avaliação de desempenho", "Concessão de serviço público / Subconcessão", "Concessão / Responsabilidade civil concessionária", "Aposentadoria voluntária / TCU", "Ação civil pública / Legitimidade ativa", "Cadastro Ambiental Rural / CAR", "Estabelecimento comercial / Trespasse", "Consumidor / Vícios do produto / Prazo", "Responsabilidade civil / Res in custodia", "Responsabilidade civil / Caso fortuito", "Contratos / Comodato", "Direito real / Passagem forçada", "Guarda / Dissolução de união estável", "Adoção unilateral / Herança", "Score de crédito / LGPD", "Transporte aéreo / Extravio de bagagem", "Trespasse / Sucessão de dívidas", "Nota promissória / Aval", "Falência / Ação de execução em curso", "Nome empresarial / Firma individual", "Competência / Exceção de incompetência", "Prazos processuais / Contestação", "Ação coletiva / Dano moral coletivo", "Juizados Especiais / Competência", "Cumprimento de sentença / Multa e honorários", "Juizado Especial Cível / Recurso inominado", "Homicídio / Feminicídio", "Peculato / Funcionário de sociedade de economia mista", "Livramento condicional / Revogação", "Concurso de crimes / Detração penal", "Execução penal / Remição de pena", "Crime continuado / Concurso de crimes", "ECA / Contravenção penal / Adolescente", "Júri / Confissão e qualificadoras", "Crimes sexuais / Ação penal pública", "Prisão preventiva / Excesso de prazo", "Furto / Reincidência e atenuantes", "Prescrição / Causas interruptivas", "Salário-família e salário-maternidade", "Pensão por morte / Regime Geral", "Trabalho infantil / Aprendiz", "Suspensão do contrato de trabalho / Lay-off", "Equiparação salarial", "Estabilidade / Doença ocupacional", "Teletrabalho e trabalho externo / Jornada", "Citação / Notificação citatória trabalhista", "Revelia trabalhista / Efeitos", "Dispensa por justa causa / Prova documental", "Fiscalização do trabalho / Auto de infração", "Rescisão / Recolhimentos previdenciários"]]
 };
 
 const DATA_KEY = 'oab_pro_edicoes';
@@ -2124,44 +2131,183 @@ function renderDistCompChart() {
   });
 }
 
-// --- IMPORTAR NOVA EDIÇÃO ---
-function importarEdicao() {
+// --- FAIXAS FIXAS DE DISCIPLINA (mesmo padrão usado nas edições anteriores) ---
+const FAIXAS_DISCIPLINA = [
+  [1,8,'Ética e Estatuto'],[9,10,'Filosofia do Direito'],[11,16,'Direito Constitucional'],
+  [17,18,'Direitos Humanos'],[19,20,'Direito Eleitoral'],[21,22,'Direito Internacional'],
+  [23,24,'Direito Financeiro'],[25,29,'Direito Tributário'],[30,34,'Direito Administrativo'],
+  [35,36,'Direito Ambiental'],[37,42,'Direito Civil'],[43,44,'Direito da Criança e do Adolescente'],
+  [45,46,'Direito do Consumidor'],[47,50,'Direito Empresarial'],[51,56,'Processo Civil'],
+  [57,62,'Direito Penal'],[63,68,'Processo Penal'],[69,70,'Direito Previdenciário'],
+  [71,75,'Direito do Trabalho'],[76,80,'Processo do Trabalho'],
+];
+
+function disciplinaPorQuestao(num) {
+  for (const [ini, fim, disc] of FAIXAS_DISCIPLINA) {
+    if (num >= ini && num <= fim) return disc;
+  }
+  return 'Outras';
+}
+
+// --- ESTADO DOS ARQUIVOS CARREGADOS ---
+let uploadState = { questoesDisc: null, planilha: null, nq: null };
+
+// --- LER ARQUIVO .DOCX DE QUESTÕES ---
+async function handleFileQuestoes(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const label = document.getElementById('label-questoes');
+  label.textContent = `⏳ Lendo ${file.name}...`;
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    const text = result.value;
+
+    // Detectar números de questão no texto bruto (padrão: linha isolada com número 1-80)
+    const lines = text.split('\n');
+    const foundNums = new Set();
+    for (const line of lines) {
+      const trimmed = line.trim();
+      const m = trimmed.match(/^(\d{1,2})$/);
+      if (m) {
+        const n = parseInt(m[1]);
+        if (n >= 1 && n <= 80) foundNums.add(n);
+      }
+    }
+
+    const totalEncontradas = foundNums.size;
+    uploadState.questoesDisc = FAIXAS_DISCIPLINA;
+    uploadState.nq = totalEncontradas >= 70 ? 80 : totalEncontradas; // assume padrão de 80 se maioria identificada
+
+    label.innerHTML = `✓ <strong>${file.name}</strong><br><span style="font-size:11px;color:var(--text3);">${totalEncontradas} questões identificadas</span>`;
+    label.style.borderColor = 'var(--accent)';
+    label.style.color = 'var(--accent)';
+
+    updatePreview();
+  } catch (err) {
+    label.textContent = '✗ Erro ao ler o arquivo — tente novamente';
+    label.style.borderColor = 'var(--danger)';
+    console.error(err);
+  }
+}
+
+// --- LER ARQUIVO .XLSX DE RESULTADOS ---
+async function handleFilePlanilha(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const label = document.getElementById('label-planilha');
+  label.textContent = `⏳ Lendo ${file.name}...`;
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const wb = XLSX.read(arrayBuffer, { type: 'array' });
+    const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('resultado')) || wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+    if (rows.length < 3) throw new Error('Planilha sem dados suficientes');
+
+    const headerRow = rows[0];
+    const gabRow = rows[1];
+
+    // Localizar colunas Q01, Q02...
+    const qCols = [];
+    headerRow.forEach((h, i) => {
+      if (h && /^Q\d+/i.test(String(h).trim())) qCols.push(i);
+    });
+    if (qCols.length === 0) throw new Error('Colunas de questão (Q01, Q02...) não encontradas');
+
+    const nq = qCols.length;
+    const gabarito = qCols.map(c => gabRow[c] ? String(gabRow[c]).trim().toUpperCase() : null);
+
+    // Detectar coluna de status (Presente/Ausente) se existir
+    const statusColIdx = headerRow.findIndex(h => h && /status/i.test(String(h)));
+
+    const acertos = new Array(nq).fill(0);
+    const notas = [];
+    let presentes = 0, ausentes = 0;
+
+    for (let r = 2; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row || row.every(c => c === null)) continue;
+
+      if (statusColIdx >= 0) {
+        const status = row[statusColIdx] ? String(row[statusColIdx]).trim() : '';
+        if (status === 'Ausente') { ausentes++; continue; }
+        if (status && status !== 'Presente') continue;
+      }
+
+      const respostas = qCols.map(c => row[c] ? String(row[c]).trim().toUpperCase() : null);
+      const temResposta = respostas.some(r => r);
+      if (!temResposta) continue;
+
+      let ac = 0;
+      for (let i = 0; i < nq; i++) {
+        if (respostas[i] && gabarito[i] && respostas[i] === gabarito[i]) { acertos[i]++; ac++; }
+      }
+      presentes++;
+      notas.push(Math.round(ac / nq * 1000) / 10);
+    }
+
+    if (notas.length === 0) throw new Error('Nenhum participante com respostas encontrado');
+
+    uploadState.planilha = { nq, gabarito, acertos, notas, presentes, ausentes };
+
+    label.innerHTML = `✓ <strong>${file.name}</strong><br><span style="font-size:11px;color:var(--text3);">${presentes} participantes · ${nq} questões</span>`;
+    label.style.borderColor = 'var(--accent)';
+    label.style.color = 'var(--accent)';
+
+    updatePreview();
+  } catch (err) {
+    label.textContent = `✗ ${err.message || 'Erro ao ler a planilha'}`;
+    label.style.borderColor = 'var(--danger)';
+    console.error(err);
+  }
+}
+
+function updatePreview() {
+  const box = document.getElementById('preview-box');
+  const content = document.getElementById('preview-content');
+  const btn = document.getElementById('btn-importar');
+
+  if (!uploadState.planilha) { box.style.display = 'none'; return; }
+
+  const p = uploadState.planilha;
+  const media = Math.round(p.notas.reduce((s,v) => s+v, 0) / p.notas.length * 10) / 10;
+  const discInfo = uploadState.questoesDisc
+    ? `<span style="color:var(--success);">✓ Disciplinas serão classificadas automaticamente pelas faixas fixas</span>`
+    : `<span style="color:var(--warning);">⚠ Sem o arquivo de questões, disciplina ficará "A definir" para todas as questões</span>`;
+
+  content.innerHTML = `
+    <strong>${p.presentes}</strong> participantes processados (${p.ausentes} ausentes detectados)<br>
+    <strong>${p.nq}</strong> questões com gabarito identificado<br>
+    Média geral calculada: <strong>${media}%</strong><br>
+    ${discInfo}
+  `;
+  box.style.display = 'block';
+  btn.style.opacity = '1';
+  btn.style.pointerEvents = 'auto';
+}
+
+// --- IMPORTAR NOVA EDIÇÃO A PARTIR DOS ARQUIVOS ---
+function importarEdicaoArquivos() {
   const label = document.getElementById('new-label').value.trim();
   const dataStr = document.getElementById('new-data').value;
-  const nqStr = document.getElementById('new-nq').value;
-  const inscritosStr = document.getElementById('new-inscritos').value;
-  const gabRaw = document.getElementById('new-gabarito').value.trim();
-  const respostasRaw = document.getElementById('new-respostas').value.trim();
-  const msg = document.getElementById('import-msg');
 
-  if (!label || !dataStr || !nqStr || !gabRaw || !respostasRaw) {
-    showMsg('Preencha todos os campos obrigatórios.', 'error'); return;
-  }
+  if (!label || !dataStr) { showMsg('Preencha o nome e a data da edição.', 'error'); return; }
+  if (!uploadState.planilha) { showMsg('Anexe a planilha de resultados (.xlsx) antes de importar.', 'error'); return; }
 
-  const nq = parseInt(nqStr);
-  const gab = gabRaw.split(/[\s,;]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
-  if (gab.length < nq) { showMsg(`Gabarito incompleto: esperado ${nq} respostas, encontrado ${gab.length}.`, 'error'); return; }
-
-  const linhas = respostasRaw.split('\n').map(l => l.trim()).filter(Boolean);
-  if (linhas.length < 1) { showMsg('Adicione ao menos uma linha de respostas.', 'error'); return; }
-
-  let acertos = new Array(nq).fill(0);
-  let notas = [];
-
-  linhas.forEach(linha => {
-    const resps = linha.split(/[\s,;]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
-    let ac = 0;
-    for (let i = 0; i < nq; i++) {
-      if (resps[i] && resps[i] === gab[i]) { acertos[i]++; ac++; }
-    }
-    notas.push(Math.round(ac/nq*1000)/10);
-  });
-
+  const p = uploadState.planilha;
+  const nq = p.nq;
+  const notas = p.notas;
   const n = notas.length;
-  const media = Math.round(notas.reduce((s,v) => s+v, 0) / n * 10)/10;
+
+  const mediaCalc = notas.reduce((s,v) => s+v, 0) / n;
+  const media = Math.round(mediaCalc * 10) / 10;
   const sorted = [...notas].sort((a,b) => a-b);
   const mediana = n % 2 === 0 ? (sorted[n/2-1]+sorted[n/2])/2 : sorted[Math.floor(n/2)];
-  const dp = Math.round(Math.sqrt(notas.reduce((s,v) => s+(v-media)**2, 0)/n) * 10)/10;
+  const dp = Math.round(Math.sqrt(notas.reduce((s,v) => s+(v-mediaCalc)**2, 0)/n) * 10)/10;
   const maximo = Math.max(...notas);
   const minimo = Math.min(...notas);
   const apr50 = notas.filter(v => v >= 50).length;
@@ -2174,51 +2320,89 @@ function importarEdicao() {
     else if(v<80) dist['70-80']++; else dist['80+']++;
   });
 
-  const questoes = gab.slice(0, nq).map((g, i) => {
-    const pct = Math.round(acertos[i]/n*1000)/10;
-    return { q: `Q${String(i+1).padStart(2,'0')}`, gab: g, pct, dif: pct >= 70 ? 'Fácil' : pct >= 40 ? 'Média' : 'Difícil' };
+  const questoes = p.gabarito.map((g, i) => {
+    const pct = Math.round(p.acertos[i] / n * 1000) / 10;
+    return { q: `Q${String(i+1).padStart(2,'0')}`, gab: g || '—', pct, dif: pct >= 70 ? 'Fácil' : pct >= 40 ? 'Média' : 'Difícil' };
   });
 
   const [y, m, d] = dataStr.split('-');
   const dataFmt = `${d}/${m}/${y}`;
-  const inscritos = parseInt(inscritosStr) || n;
   const newId = Math.max(...edicoes.map(e => e.id), 0) + 1;
 
   const nova = {
     id: newId, label, data: dataFmt, n_questoes: nq,
-    n_inscritos: inscritos, n_presentes: n, n_ausentes: Math.max(0, inscritos - n),
+    n_inscritos: n + p.ausentes, n_presentes: n, n_ausentes: p.ausentes,
     stats: { n, media, mediana: Math.round(mediana*10)/10, dp, maximo, minimo, apr50, apr70, pct50: Math.round(apr50/n*1000)/10, pct70: Math.round(apr70/n*1000)/10 },
     dist, questoes, notas
   };
 
   edicoes.push(nova);
+
+  // Gerar DISC_MAP e TEMA_MAP para a nova edição
+  const discArr = [];
+  const temaArr = [];
+  for (let i = 1; i <= nq; i++) {
+    discArr.push(disciplinaPorQuestao(i));
+    temaArr.push('A definir');
+  }
+  DISC_MAP[newId] = discArr;
+  TEMA_MAP[newId] = temaArr;
+
+  // Calcular DISC_DIST
+  const distDisc = {};
+  discArr.forEach(d => { distDisc[d] = (distDisc[d] || 0) + 1; });
+  DISC_DIST[newId] = distDisc;
+
   saveData();
   updateFooter();
 
+  // Reset do formulário
   document.getElementById('new-label').value = '';
   document.getElementById('new-data').value = '';
-  document.getElementById('new-nq').value = '';
-  document.getElementById('new-inscritos').value = '';
-  document.getElementById('new-gabarito').value = '';
-  document.getElementById('new-respostas').value = '';
+  document.getElementById('file-questoes').value = '';
+  document.getElementById('file-planilha').value = '';
+  document.getElementById('label-questoes').innerHTML = 'Clique para selecionar o .docx';
+  document.getElementById('label-questoes').style.borderColor = '';
+  document.getElementById('label-questoes').style.color = '';
+  document.getElementById('label-planilha').innerHTML = 'Clique para selecionar o .xlsx';
+  document.getElementById('label-planilha').style.borderColor = '';
+  document.getElementById('label-planilha').style.color = '';
+  document.getElementById('preview-box').style.display = 'none';
+  document.getElementById('btn-importar').style.opacity = '0.5';
+  document.getElementById('btn-importar').style.pointerEvents = 'none';
+  uploadState = { questoesDisc: null, planilha: null, nq: null };
 
-  showMsg(`✓ ${label} importada com sucesso! ${n} participantes processados. Clique em "Baixar arquivo atualizado" para salvar e publicar no GitHub.`, 'success');
+  showMsg(`✓ ${label} importada com sucesso! ${n} participantes processados e disciplinas classificadas automaticamente. Clique em "Baixar arquivo atualizado" para publicar.`, 'success');
   document.getElementById('btn-exportar').style.display = 'inline-block';
 }
 
 function exportarHTML() {
   // Pega o HTML completo da página atual
-  const htmlAtual = document.documentElement.outerHTML;
+  let htmlAtual = document.documentElement.outerHTML;
 
   // Substitui os DADOS_INICIAIS pelo estado atual das edições
   const dadosJSON = JSON.stringify(edicoes, null, 2);
-  const novoHTML = htmlAtual.replace(
+  htmlAtual = htmlAtual.replace(
     /const DADOS_INICIAIS = \[[\s\S]*?\];/,
     `const DADOS_INICIAIS = ${dadosJSON};`
   );
 
+  // Substitui DISC_MAP, DISC_DIST e TEMA_MAP (podem ter novas edições adicionadas em runtime)
+  htmlAtual = htmlAtual.replace(
+    /const DISC_MAP = \{[\s\S]*?\};/,
+    `const DISC_MAP = ${JSON.stringify(DISC_MAP, null, 2)};`
+  );
+  htmlAtual = htmlAtual.replace(
+    /const DISC_DIST = \{[\s\S]*?\};/,
+    `const DISC_DIST = ${JSON.stringify(DISC_DIST, null, 2)};`
+  );
+  htmlAtual = htmlAtual.replace(
+    /const TEMA_MAP = \{[\s\S]*?\};/,
+    `const TEMA_MAP = ${JSON.stringify(TEMA_MAP, null, 2)};`
+  );
+
   // Gera o download
-  const blob = new Blob([novoHTML], { type: 'text/html;charset=utf-8' });
+  const blob = new Blob([htmlAtual], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
