@@ -1,0 +1,3541 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OAB PRO — Painel de Resultados</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f7f4;
+  --surface: #ffffff;
+  --surface2: #f2f0ec;
+  --border: rgba(0,0,0,0.10);
+  --border-strong: rgba(0,0,0,0.18);
+  --text: #1a1a18;
+  --text2: #6b6b67;
+  --text3: #9b9b96;
+  --accent: #2D5BE3;
+  --accent-bg: #eef2fd;
+  --success: #1a7a4a;
+  --success-bg: #e8f7ef;
+  --danger: #c0392b;
+  --danger-bg: #fdecea;
+  --warning: #a05a00;
+  --warning-bg: #fdf4e3;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; }
+
+/* HEADER */
+.header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 40px; display: flex; align-items: center; justify-content: space-between; height: 60px; position: sticky; top: 0; z-index: 100; }
+.logo { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
+.logo span { color: var(--accent); }
+.header-nav { display: flex; gap: 4px; }
+.nav-btn { background: none; border: none; padding: 6px 14px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); transition: all 0.15s; }
+.nav-btn:hover { background: var(--surface2); color: var(--text); }
+.nav-btn.active { background: var(--accent-bg); color: var(--accent); }
+
+/* MAIN */
+.main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 60px; }
+
+/* SECTION TITLES */
+.section-title { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 4px; }
+.section-sub { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+
+/* EDITION SELECTOR */
+.ed-tabs { display: flex; gap: 8px; margin-bottom: 28px; flex-wrap: wrap; align-items: center; }
+.ed-tab { padding: 8px 18px; border-radius: 30px; border: 1.5px solid var(--border); background: var(--surface); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; color: var(--text2); }
+.ed-tab:hover { border-color: var(--accent); color: var(--accent); }
+.ed-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ed-tab.all-tab { background: var(--surface2); border-color: transparent; color: var(--text); }
+.ed-tab.all-tab.active { background: var(--text); border-color: var(--text); color: #fff; }
+
+/* METRIC GRID */
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.metric-label { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+.metric-value { font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -1px; line-height: 1; }
+.metric-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+.metric-card.good .metric-value { color: var(--success); }
+.metric-card.warn .metric-value { color: var(--warning); }
+.metric-card.bad .metric-value { color: var(--danger); }
+
+/* CHART CARDS */
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.chart-card.full { grid-column: 1/-1; }
+.chart-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.chart-sub { font-size: 11px; color: var(--text3); margin-bottom: 14px; }
+
+/* QUESTION TABLE */
+.q-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+.q-filters { display: flex; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; align-items: center; }
+.q-filter-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; cursor: pointer; color: var(--text2); transition: all 0.12s; }
+.q-filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.q-search { flex: 1; min-width: 140px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; background: var(--bg); color: var(--text); outline: none; }
+.q-search:focus { border-color: var(--accent); }
+.q-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.q-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); background: var(--surface2); cursor: pointer; }
+.q-table th:hover { color: var(--text); }
+.q-table td { padding: 9px 14px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.q-table tr:last-child td { border-bottom: none; }
+.q-table tr:hover td { background: var(--surface2); }
+.bar-wrap { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.bar-bg { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.pct-label { font-size: 12px; font-weight: 600; min-width: 36px; text-align: right; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge.facil { background: var(--success-bg); color: var(--success); }
+.badge.media { background: var(--warning-bg); color: var(--warning); }
+.badge.dificil { background: var(--danger-bg); color: var(--danger); }
+.gab-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface2); font-size: 11px; font-weight: 700; color: var(--text); }
+
+/* COMPARATIVO */
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.compare-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.compare-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.compare-tag { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+.tag-1 { background: #e8edfb; color: #2D5BE3; }
+.tag-2 { background: #fce8e8; color: #c0392b; }
+.tag-3 { background: #e8f7ef; color: #1a7a4a; }
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 13px; }
+.stat-row:last-child { border-bottom: none; }
+.stat-row .label { color: var(--text2); }
+.stat-row .value { font-weight: 600; }
+
+/* HIGHLIGHTS */
+.highlights-title { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 12px; margin-top: 4px; color: var(--text); }
+.highlights-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-bottom: 8px; }
+.highlight-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+.highlight-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.highlight-ed-label { font-size: 13px; font-weight: 700; }
+.highlight-row { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.highlight-row:last-child { border-bottom: none; }
+.highlight-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.highlight-icon.pos { background: var(--success-bg); }
+.highlight-icon.neg { background: var(--danger-bg); }
+.highlight-info { flex: 1; }
+.highlight-disc { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; }
+.highlight-meta { font-size: 11px; color: var(--text2); margin-top: 1px; }
+.highlight-pct { font-size: 14px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+.highlight-pct.pos { color: var(--success); }
+.highlight-pct.neg { color: var(--danger); }
+
+/* UPLOAD */
+.upload-section { background: var(--surface); border: 1.5px dashed var(--border-strong); border-radius: var(--radius); padding: 36px; text-align: center; }
+.upload-section.dragover { border-color: var(--accent); background: var(--accent-bg); }
+.upload-icon { font-size: 40px; margin-bottom: 12px; color: var(--text3); }
+.upload-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.upload-desc { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+.upload-btn { display: inline-block; padding: 9px 22px; background: var(--accent); color: white; border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; }
+.upload-btn:hover { opacity: 0.9; }
+.upload-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; text-align: left; }
+.field-group label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 4px; }
+.field-group input, .field-group select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; background: var(--bg); color: var(--text); outline: none; }
+.field-group input:focus, .field-group select:focus { border-color: var(--accent); }
+
+/* TABS DE VISÃO */
+.view-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+.view-tab { padding: 10px 20px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.12s; }
+.view-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.view-tab:hover { color: var(--text); }
+
+/* VIEWS */
+.view { display: none; }
+.view.active { display: block; }
+
+/* FOOTER */
+.footer-bar { background: var(--surface); border-top: 1px solid var(--border); padding: 12px 40px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text3); }
+
+/* RESPONSIVE */
+@media (max-width: 700px) {
+  .chart-row { grid-template-columns: 1fr; }
+  .compare-grid { grid-template-columns: 1fr; }
+  .upload-fields { grid-template-columns: 1fr; }
+  .main { padding: 20px 14px 40px; }
+  .header { padding: 0 16px; }
+}
+
+/* PRINT */
+.no-print { }
+@media print { .no-print { display: none !important; } }
+
+/* TOOLTIP */
+.tooltip { position: fixed; background: var(--text); color: #fff; padding: 6px 10px; border-radius: var(--radius-sm); font-size: 12px; pointer-events: none; z-index: 999; opacity: 0; transition: opacity 0.1s; }
+</style>
+</head>
+<body>
+
+<header class="header no-print">
+  <div class="logo">OAB <span>PRO</span></div>
+  <nav class="header-nav">
+    <button class="nav-btn active" onclick="showPage('visao-geral')">Visão geral</button>
+    <button class="nav-btn" onclick="showPage('questoes')">Questões</button>
+    <button class="nav-btn" onclick="showPage('comparativo')">Comparativo</button>
+    <button class="nav-btn" onclick="showPage('disciplinas')">Disciplinas</button>
+    <button class="nav-btn" onclick="showPage('nova-edicao')">+ Nova edição</button>
+  </nav>
+</header>
+
+<main class="main">
+
+<!-- ==================== VISÃO GERAL ==================== -->
+<div class="view active" id="page-visao-geral">
+  <div class="section-title">Painel de resultados</div>
+  <p class="section-sub">Resultados consolidados das edições realizadas • atualização automática ao importar nova edição</p>
+
+  <div class="ed-tabs no-print" id="ed-tabs">
+    <button class="ed-tab all-tab active" onclick="selectEd('all', this)">Todas as edições</button>
+  </div>
+
+  <div id="metric-grid" class="metric-grid"></div>
+
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-title">Distribuição de notas</div>
+      <div class="chart-sub" id="dist-sub">Faixas percentuais de desempenho</div>
+      <div style="position:relative;height:220px;"><canvas id="chartDist" role="img" aria-label="Distribuição de notas por faixa percentual"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Dificuldade das questões</div>
+      <div class="chart-sub">Classificação por taxa de acerto</div>
+      <div style="position:relative;height:220px;"><canvas id="chartDif" role="img" aria-label="Quantidade de questões por nível de dificuldade"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-card full">
+      <div class="chart-title">Taxa de acerto por questão</div>
+      <div class="chart-sub" id="perq-sub">% de acerto de cada questão entre os presentes</div>
+      <div style="position:relative;height:260px;"><canvas id="chartPerQ" role="img" aria-label="Taxa de acerto por questão"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-card full">
+      <div class="chart-title">Evolução entre edições</div>
+      <div class="chart-sub">Comparação de médias e aprovação por edição</div>
+      <div style="position:relative;height:200px;"><canvas id="chartEvolucao" role="img" aria-label="Evolução de indicadores entre edições"></canvas></div>
+    </div>
+  </div>
+
+  <div id="highlights-section" style="margin-top:8px;"></div>
+</div>
+
+<!-- ==================== QUESTÕES ==================== -->
+<div class="view" id="page-questoes">
+  <div class="section-title">Análise por questão</div>
+  <p class="section-sub">Identifique pontos fracos e fortes da turma</p>
+
+  <div class="ed-tabs no-print" id="ed-tabs-q">
+    <button class="ed-tab active" onclick="selectEdQ('1', this)">1ª Edição</button>
+    <button class="ed-tab" onclick="selectEdQ('2', this)">2ª Edição</button>
+  </div>
+
+  <div class="q-table-wrap">
+    <div class="q-filters">
+      <button class="q-filter-btn active" onclick="filterQ('all', this)">Todas</button>
+      <button class="q-filter-btn" onclick="filterQ('Difícil', this)">🔴 Difíceis</button>
+      <button class="q-filter-btn" onclick="filterQ('Média', this)">🟡 Médias</button>
+      <button class="q-filter-btn" onclick="filterQ('Fácil', this)">🟢 Fáceis</button>
+      <input class="q-search" type="text" id="q-search" placeholder="Buscar questão..." oninput="renderQTable()">
+    </div>
+    <table class="q-table" id="q-table">
+      <thead>
+        <tr>
+          <th onclick="sortQ('q')">Questão ↕</th>
+          <th onclick="sortQ('gab')">Gabarito ↕</th>
+          <th>Tema</th>
+          <th onclick="sortQ('pct')">Taxa de acerto ↕</th>
+          <th onclick="sortQ('dif')">Dificuldade ↕</th>
+        </tr>
+      </thead>
+      <tbody id="q-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Top 10 questões mais difíceis</div>
+    <div class="chart-sub">Questões com menor taxa de acerto — foco de revisão para próximas edições</div>
+    <div style="position:relative;" id="hard-chart-wrap"><canvas id="chartHard" role="img" aria-label="Top 10 questões mais difíceis"></canvas></div>
+  </div>
+</div>
+
+<!-- ==================== COMPARATIVO ==================== -->
+<div class="view" id="page-comparativo">
+  <div class="section-title">Comparativo entre edições</div>
+  <p class="section-sub">Evolução de desempenho e índices estatísticos</p>
+
+  <div class="compare-grid" id="compare-cards"></div>
+
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-title">Média geral por edição</div>
+      <div class="chart-sub">Tendência de desempenho ao longo das edições</div>
+      <div style="position:relative;height:200px;"><canvas id="chartMedias" role="img" aria-label="Média geral por edição"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Taxa de aprovação (≥ 50%)</div>
+      <div class="chart-sub">Evolução do percentual de aprovados</div>
+      <div style="position:relative;height:200px;"><canvas id="chartAprovacao" role="img" aria-label="Taxa de aprovação por edição"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-title">Distribuição comparada de notas</div>
+    <div class="chart-sub">Sobreposição de faixas de desempenho entre as edições</div>
+    <div style="position:relative;height:220px;"><canvas id="chartDistComp" role="img" aria-label="Distribuição comparada"></canvas></div>
+  </div>
+</div>
+
+<!-- ==================== NOVA EDIÇÃO ==================== -->
+<div class="view" id="page-nova-edicao">
+  <div class="section-title">Importar nova edição</div>
+  <p class="section-sub">Anexe os dois arquivos da edição — o painel lê, calcula e classifica tudo automaticamente</p>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:16px;">Informações da edição</div>
+    <div class="upload-fields">
+      <div class="field-group">
+        <label>Nome da edição *</label>
+        <input type="text" id="new-label" placeholder="ex: 3ª Edição">
+      </div>
+      <div class="field-group">
+        <label>Data de realização *</label>
+        <input type="date" id="new-data">
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px;">📄 Arquivo de questões (.docx)</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">O Word com as 80 questões do simulado, no formato padrão (Q01-08 Ética, Q09-10 Filosofia...).</div>
+      <input type="file" id="file-questoes" accept=".docx" style="display:none;" onchange="handleFileQuestoes(this)">
+      <label for="file-questoes" id="label-questoes" style="display:block;text-align:center;padding:18px;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2);">
+        Clique para selecionar o .docx
+      </label>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px;">📊 Planilha de resultados (.xlsx)</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">A planilha exportada com aba "Resultados" contendo gabarito e respostas dos participantes.</div>
+      <input type="file" id="file-planilha" accept=".xlsx,.xls" style="display:none;" onchange="handleFilePlanilha(this)">
+      <label for="file-planilha" id="label-planilha" style="display:block;text-align:center;padding:18px;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2);">
+        Clique para selecionar o .xlsx
+      </label>
+    </div>
+  </div>
+
+  <div id="preview-box" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px;">Pré-visualização</div>
+    <div id="preview-content" style="font-size:13px;color:var(--text2);line-height:1.8;"></div>
+  </div>
+
+  <div id="import-msg" style="display:none;padding:12px 16px;border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px;"></div>
+
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:0;">
+    <button class="upload-btn" id="btn-importar" onclick="importarEdicaoArquivos()" style="padding:11px 28px;font-size:14px;opacity:0.5;pointer-events:none;">Importar edição</button>
+    <button id="btn-exportar" onclick="exportarHTML()" style="display:none;padding:11px 28px;font-size:14px;background:#1a7a4a;border:none;border-radius:6px;color:white;font-weight:600;cursor:pointer;">⬇ Baixar arquivo atualizado</button>
+  </div>
+
+  <div style="background:var(--surface2);border-radius:var(--radius);padding:20px;margin-top:28px;">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Como funciona</div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.8;">
+      1. Anexe o <strong>arquivo .docx</strong> com as questões da nova edição (mesmo padrão de faixas: Q01-08 Ética, Q09-10 Filosofia, etc.).<br>
+      2. Anexe a <strong>planilha .xlsx</strong> de resultados, com o gabarito na linha 2 e as respostas dos participantes nas linhas seguintes.<br>
+      3. Preencha nome e data da edição, confira a pré-visualização e clique em <strong>Importar edição</strong>.<br>
+      4. O painel calcula acertos, médias, distribuição e já classifica cada questão por <strong>disciplina</strong> automaticamente. O campo <strong>tema</strong> específico fica marcado como "A definir" — edite manualmente depois na aba Disciplinas, se desejar.<br>
+      5. Clique em <strong>⬇ Baixar arquivo atualizado</strong> → salve como <code>index.html</code>.<br>
+      6. No GitHub, abra o repositório → clique no arquivo <code>index.html</code> → ícone de lápis → <strong>Upload file</strong> → substitua e clique em <strong>Commit changes</strong>. Em ~1 minuto o painel online estará atualizado.
+    </div>
+  </div>
+</div>
+
+
+<!-- ==================== DISCIPLINAS ==================== -->
+<div class="view" id="page-disciplinas">
+  <div class="section-title">Análise por disciplina</div>
+  <p class="section-sub">Distribuição de questões e desempenho por área do Direito</p>
+
+  <div class="ed-tabs no-print" id="ed-tabs-disc">
+    <button class="ed-tab active" onclick="selectEdDisc('1', this)">1ª Edição</button>
+    <button class="ed-tab" onclick="selectEdDisc('2', this)">2ª Edição</button>
+    <button class="ed-tab" onclick="selectEdDisc('3', this)">3ª Edição</button>
+    <button class="ed-tab all-tab" onclick="selectEdDisc('all', this)">Comparativo</button>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-card">
+      <div class="chart-title">Questões por disciplina</div>
+      <div class="chart-sub">Quantidade de questões cobradas por área</div>
+      <div style="position:relative;height:300px;"><canvas id="chartDiscQtd" role="img" aria-label="Quantidade de questões por disciplina"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Desempenho por disciplina</div>
+      <div class="chart-sub">Taxa média de acerto por área do Direito</div>
+      <div style="position:relative;height:300px;"><canvas id="chartDiscAcerto" role="img" aria-label="Taxa de acerto por disciplina"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-title">Pontos fortes e fracos por disciplina</div>
+    <div class="chart-sub">Visão combinada: volume de questões × desempenho da turma</div>
+    <div id="disc-table-wrap"></div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-title">Comparativo entre edições</div>
+    <div class="chart-sub">Evolução do desempenho por disciplina</div>
+    <div style="position:relative;height:320px;"><canvas id="chartDiscComp" role="img" aria-label="Comparativo de desempenho por disciplina entre edições"></canvas></div>
+  </div>
+</div>
+
+</main>
+
+<div class="footer-bar no-print">
+  <span>OAB PRO · Simulado Preparatório · <span id="footer-edicoes"></span></span>
+  <span id="footer-data"></span>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const DISC_MAP = {
+  1: ["Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Filosofia do Direito", "Filosofia do Direito", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direitos Humanos", "Direitos Humanos", "Direito Eleitoral", "Direito Eleitoral", "Direito Internacional", "Direito Internacional", "Direito Financeiro", "Direito Financeiro", "Direito Tributário", "Direito Tributário", "Direito Tributário", "Direito Tributário", "Direito Tributário", "Direito Administrativo", "Direito Administrativo", "Direito Administrativo", "Direito Administrativo", "Direito Administrativo", "Direito Ambiental", "Direito Ambiental", "Direito Civil", "Direito Civil", "Direito Civil", "Direito Civil", "Direito Civil", "Direito Civil", "Direito da Criança e do Adolescente", "Direito da Criança e do Adolescente", "Direito do Consumidor", "Direito do Consumidor", "Direito Empresarial", "Direito Empresarial", "Direito Empresarial", "Direito Empresarial", "Processo Civil", "Processo Civil", "Processo Civil", "Processo Civil", "Processo Civil", "Processo Civil", "Direito Penal", "Direito Penal", "Direito Penal", "Direito Penal", "Direito Penal", "Direito Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Direito Previdenciário", "Direito Previdenciário", "Direito do Trabalho", "Direito do Trabalho", "Direito do Trabalho", "Direito do Trabalho", "Direito do Trabalho", "Processo do Trabalho", "Processo do Trabalho", "Processo do Trabalho", "Processo do Trabalho", "Processo do Trabalho"],
+  2: ["Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Ética e Estatuto", "Filosofia do Direito", "Filosofia do Direito", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direitos Humanos", "Direitos Humanos", "Direito Eleitoral", "Direito Eleitoral", "Direito Internacional", "Direito Internacional", "Direito Financeiro", "Direito Financeiro", "Direito Tributário", "Direito Tributário", "Direito Tributário", "Direito Tributário", "Direito Tributário", "Direito Administrativo", "Direito Administrativo", "Direito Administrativo", "Direito Administrativo", "Direito Administrativo", "Direito Ambiental", "Direito Ambiental", "Direito Civil", "Direito Civil", "Direito Civil", "Direito Civil", "Direito Civil", "Direito Civil", "Direito da Criança e do Adolescente", "Direito da Criança e do Adolescente", "Direito do Consumidor", "Direito do Consumidor", "Direito Empresarial", "Direito Empresarial", "Direito Empresarial", "Direito Empresarial", "Processo Civil", "Processo Civil", "Processo Civil", "Processo Civil", "Processo Civil", "Processo Civil", "Direito Penal", "Direito Penal", "Direito Penal", "Direito Penal", "Direito Penal", "Direito Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Direito Previdenciário", "Direito Previdenciário", "Direito do Trabalho", "Direito do Trabalho", "Direito do Trabalho", "Direito do Trabalho", "Direito do Trabalho", "Processo do Trabalho", "Processo do Trabalho", "Processo do Trabalho", "Processo do Trabalho", "Processo do Trabalho"],
+  3: ["\u00c9tica e Estatuto", "\u00c9tica e Estatuto", "\u00c9tica e Estatuto", "\u00c9tica e Estatuto", "\u00c9tica e Estatuto", "\u00c9tica e Estatuto", "\u00c9tica e Estatuto", "\u00c9tica e Estatuto", "Filosofia do Direito", "Filosofia do Direito", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direito Constitucional", "Direitos Humanos", "Direitos Humanos", "Direito Eleitoral", "Direito Eleitoral", "Direito Internacional", "Direito Internacional", "Direito Financeiro", "Direito Financeiro", "Direito Tribut\u00e1rio", "Direito Tribut\u00e1rio", "Direito Tribut\u00e1rio", "Direito Tribut\u00e1rio", "Direito Tribut\u00e1rio", "Direito Administrativo", "Direito Administrativo", "Direito Administrativo", "Direito Administrativo", "Direito Administrativo", "Direito Ambiental", "Direito Ambiental", "Direito Civil", "Direito Civil", "Direito Civil", "Direito Civil", "Direito Civil", "Direito Civil", "Direito da Crian\u00e7a e do Adolescente", "Direito da Crian\u00e7a e do Adolescente", "Direito do Consumidor", "Direito do Consumidor", "Direito Empresarial", "Direito Empresarial", "Direito Empresarial", "Direito Empresarial", "Processo Civil", "Processo Civil", "Processo Civil", "Processo Civil", "Processo Civil", "Processo Civil", "Direito Penal", "Direito Penal", "Direito Penal", "Direito Penal", "Direito Penal", "Direito Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Processo Penal", "Direito Previdenci\u00e1rio", "Direito Previdenci\u00e1rio", "Direito do Trabalho", "Direito do Trabalho", "Direito do Trabalho", "Direito do Trabalho", "Direito do Trabalho", "Processo do Trabalho", "Processo do Trabalho", "Processo do Trabalho", "Processo do Trabalho", "Processo do Trabalho"]
+};
+
+const DISC_DIST = {
+  1: {"Ética e Estatuto": 8, "Filosofia do Direito": 2, "Direito Constitucional": 6, "Direitos Humanos": 2, "Direito Eleitoral": 2, "Direito Internacional": 2, "Direito Financeiro": 2, "Direito Tributário": 5, "Direito Administrativo": 5, "Direito Ambiental": 2, "Direito Civil": 6, "Direito da Criança e do Adolescente": 2, "Direito do Consumidor": 2, "Direito Empresarial": 4, "Processo Civil": 6, "Direito Penal": 6, "Processo Penal": 6, "Direito Previdenciário": 2, "Direito do Trabalho": 5, "Processo do Trabalho": 5},
+  2: {"Ética e Estatuto": 8, "Filosofia do Direito": 2, "Direito Constitucional": 6, "Direitos Humanos": 2, "Direito Eleitoral": 2, "Direito Internacional": 2, "Direito Financeiro": 2, "Direito Tributário": 5, "Direito Administrativo": 5, "Direito Ambiental": 2, "Direito Civil": 6, "Direito da Criança e do Adolescente": 2, "Direito do Consumidor": 2, "Direito Empresarial": 4, "Processo Civil": 6, "Direito Penal": 6, "Processo Penal": 6, "Direito Previdenciário": 2, "Direito do Trabalho": 5, "Processo do Trabalho": 5},
+  3: {"\u00c9tica e Estatuto": 8, "Filosofia do Direito": 2, "Direito Constitucional": 6, "Direitos Humanos": 2, "Direito Eleitoral": 2, "Direito Internacional": 2, "Direito Financeiro": 2, "Direito Tribut\u00e1rio": 5, "Direito Administrativo": 5, "Direito Ambiental": 2, "Direito Civil": 6, "Direito da Crian\u00e7a e do Adolescente": 2, "Direito do Consumidor": 2, "Direito Empresarial": 4, "Processo Civil": 6, "Direito Penal": 6, "Processo Penal": 6, "Direito Previdenci\u00e1rio": 2, "Direito do Trabalho": 5, "Processo do Trabalho": 5}
+};
+
+const TEMA_MAP = {
+  1: ["Processo disciplinar / Representação", "Estrutura da OAB / Conselhos", "Recursos disciplinares / Efeito suspensivo", "Publicidade e propaganda profissional", "Sanções disciplinares / Reabilitação", "Impedimento e conflito de interesses", "Mandato / Procuração", "Honorários advocatícios", "Contratualismo / Hobbes", "Teoria da Justiça / Aristóteles", "Estrutura do Judiciário / CNJ", "Emenda constitucional / Requisitos", "Estado de defesa e estado de sítio", "Processo legislativo / Imunidade parlamentar", "Controle de constitucionalidade", "Tribunal de Contas da União / TCU", "Direitos indígenas / Terras indígenas", "Responsabilidade do Estado / Direito à saúde", "Gastos de campanha eleitoral", "Coligações e alianças partidárias", "Cooperação jurídica internacional / Mercosul", "Direito Internacional Privado / Família", "Precatórios / Execução contra a Fazenda", "Lei Orçamentária Anual / LOA", "Competência tributária / Contribuições sociais", "ICMS / Anterioridade tributária", "Jurisprudência tributária / STF", "Repetição do indébito tributário", "Concessão de serviço público / Tributação", "Licitação / Concessão de rodovia", "Homicídio praticado por agente estatal", "Empresa pública / Precatórios", "Servidor público / Substituição temporária", "Responsabilidade civil do Estado / Obra pública", "Competência municipal / Meio ambiente", "Ação civil pública / Meio ambiente", "Responsabilidade civil / Produto defeituoso", "Responsabilidade civil / Transporte aéreo", "Família / Separação e novo casamento", "Contratos / Empreitada", "Direito de família / Regime de bens", "Responsabilidade civil / Acidente de trânsito", "Guarda e tutela / Falecimento de genitor", "Adoção / Guarda judicial", "Publicidade comparativa", "Contrato de consumo / Pagamento", "Títulos de crédito / Letra de câmbio e endosso", "Recuperação judicial / Administrador judicial", "Empresário individual / Incapacidade civil", "Títulos de crédito / Duplicata", "Legitimidade passiva / Substituição processual", "Cumulação de pedidos e competência", "Execução de título extrajudicial", "Apelação / Desistência do recurso", "Gratuidade de justiça", "Impedimento e suspeição do advogado", "Funcionário público / Peculato", "Erro de tipo / Aberratio ictus", "Extinção da punibilidade / Prescrição", "Furto / Circunstâncias e qualificadoras", "Falsidade ideológica", "Concussão e corrupção passiva", "Lei Maria da Penha / Violência doméstica", "Incidente de insanidade mental", "Ação penal privada / Perempção", "Crime tributário / Resposta à acusação", "Lesão corporal / Representação", "Tribunal do Júri / Quesitação", "Salário-maternidade / Regime Geral", "Salário e remuneração / Gorjeta", "Vale-transporte", "Acidente de trabalho / Auxílio-doença acidentário", "Transferência de empregado", "Licenças / Casamento e luto", "Jornada / Empregada doméstica", "Rescisão / Plano de saúde como salário", "Execução trabalhista / Liquidação de sentença", "Competência Justiça do Trabalho / INSS", "Extinção do processo / Litispendência", "Menor aprendiz / Rescisão contratual"],
+  2: ["Processo disciplinar / Representação", "Estrutura da OAB / Conselhos", "Recursos disciplinares / Efeito suspensivo", "Publicidade e propaganda profissional", "Sanções disciplinares / Reabilitação", "Impedimento e conflito de interesses", "Mandato / Procuração", "Honorários advocatícios", "Lacunas e completude do ordenamento / Bobbio", "Princípios e regras / Dworkin", "Controle de constitucionalidade / Recepção", "Súmula vinculante / Administração pública", "PEC / Cláusulas pétreas / Voto obrigatório", "Nacionalidade / Naturalização", "Mutação constitucional / ADI", "Imunidade parlamentar / Foro por prerrogativa", "Greve de policiais militares", "Refugiados / Reunificação familiar", "Coligações para eleição municipal", "Fidelidade partidária / Deputada estadual", "Revalidação de diploma estrangeiro", "Imunidade de jurisdição / Embaixada", "Imunidade tributária / Entidade privada", "Lei Orçamentária / Créditos adicionais", "IPTU / Prescrição e execução fiscal", "ICMS / Parcelamento de débito", "IPTU / Progressividade de alíquotas", "Lançamento tributário / Retroatividade", "Execução fiscal / Seguro-garantia", "Servidor público / Acumulação de cargos", "Estabilidade / Avaliação de desempenho", "Concessão de serviço público / Subconcessão", "Concessão / Responsabilidade civil concessionária", "Aposentadoria voluntária / TCU", "Ação civil pública / Legitimidade ativa", "Cadastro Ambiental Rural / CAR", "Estabelecimento comercial / Trespasse", "Consumidor / Vícios do produto / Prazo", "Responsabilidade civil / Res in custodia", "Responsabilidade civil / Caso fortuito", "Contratos / Comodato", "Direito real / Passagem forçada", "Guarda / Dissolução de união estável", "Adoção unilateral / Herança", "Score de crédito / LGPD", "Transporte aéreo / Extravio de bagagem", "Trespasse / Sucessão de dívidas", "Nota promissória / Aval", "Falência / Ação de execução em curso", "Nome empresarial / Firma individual", "Competência / Exceção de incompetência", "Prazos processuais / Contestação", "Ação coletiva / Dano moral coletivo", "Juizados Especiais / Competência", "Cumprimento de sentença / Multa e honorários", "Juizado Especial Cível / Recurso inominado", "Homicídio / Feminicídio", "Peculato / Funcionário de sociedade de economia mista", "Livramento condicional / Revogação", "Concurso de crimes / Detração penal", "Execução penal / Remição de pena", "Crime continuado / Concurso de crimes", "ECA / Contravenção penal / Adolescente", "Júri / Confissão e qualificadoras", "Crimes sexuais / Ação penal pública", "Prisão preventiva / Excesso de prazo", "Furto / Reincidência e atenuantes", "Prescrição / Causas interruptivas", "Salário-família e salário-maternidade", "Pensão por morte / Regime Geral", "Trabalho infantil / Aprendiz", "Suspensão do contrato de trabalho / Lay-off", "Equiparação salarial", "Estabilidade / Doença ocupacional", "Teletrabalho e trabalho externo / Jornada", "Citação / Notificação citatória trabalhista", "Revelia trabalhista / Efeitos", "Dispensa por justa causa / Prova documental", "Fiscalização do trabalho / Auto de infração", "Rescisão / Recolhimentos previdenciários"],
+  3: ["Sociedade de advogados / Impedimentos e incompatibilidades", "Busca e apreensão em escritório / Prerrogativas da OAB", "Urgência e procuração / Atuação sem mandato", "Assessoria jurídica / Contrato de honorários e mandato", "Graduação no exterior / Requisitos para inscrição na OAB", "Advogada gestante / Direitos específicos", "Advocacia pro bono / Prestação gratuita de serviços", "Sociedade de advogados / Sócio com cargo eletivo", "Poder disciplinar / Foucault — Vigiar e Punir", "Escola da Exegese / Código Civil de Napoleão", "Processo legislativo estadual / Princípio da simetria", "Competência / Ação contra Estado estrangeiro", "ADC julgada improcedente / Reclamação constitucional", "Liberdade religiosa / Assistência espiritual em hospital", "Emenda constitucional / Novo direito social", "Educação básica municipal / Competência legislativa", "CADH / SIDH — Violação de direitos", "Estado de emergência / Suspensão de garantias judiciais", "Eleições federais e estaduais / Propaganda e gastos", "Coligação partidária / Eleição municipal majoritária", "Direito Internacional Privado / Domicílio e capacidade", "Direito Internacional Privado / Contratos internacionais", "Impasse entre Executivo e Congresso / Lei orçamentária", "Precatórios / Execução contra a Fazenda Pública", "Dissolução de sociedade limitada / Responsabilidade dos sócios", "Tributação de bicicletas elétricas / Analogia tributária", "Condomínio / Extinção e venda de imóvel herdado", "Certidão negativa de débito / IPTU", "Execução fiscal / Penhora e arrematação", "Responsabilidade do Estado / Intervenção em serviço público", "Servidor público federal / Atos administrativos e hierarquia", "Aposentadoria / Regime previdenciário do servidor público", "Ato administrativo / Controle e invalidação", "Concurso público / Aprovação e nomeação", "Licença ambiental / Indeferimento e responsabilidade", "Condomínio residencial / Gestão e responsabilidade", "Guarda compartilhada / Alimentos e separação", "Comodato / Responsabilidade por dano à coisa emprestada", "Compra e venda / Pagamento e inadimplemento", "Responsabilidade civil / Acidente de trânsito — vítimas", "Herança / Venda de imóvel por herdeiros", "Hipoteca / Garantia real e execução", "Adoção unilateral / Herança e filiação", "Alimentos / Ação de alimentos — orientação ao cliente", "Transporte aéreo / Extravio de bagagem e CDC vs Convenção de Varsóvia", "Plano de saúde / Depósito caução e cláusula limitadora abusiva", "Contrato de comissão / Obrigações e responsabilidade", "Transformação de empresa individual / Sociedade empresária", "Registro Público de Empresas / Juntas Comerciais", "Quotas de sociedade limitada / Aquisição e responsabilidade", "Recuperação judicial / Habilitação de crédito", "Improbidade administrativa / Ação e sanções", "Ação de exigir contas / Rito e fases procedimentais", "Desconsideração da personalidade jurídica / Sócios", "Ação de alimentos / Prisão civil por inadimplemento", "Responsabilidade civil / Acidente de trabalho", "Latrocínio tentado / Dosimetria da pena", "Prescrição penal / Homicídio simples — cálculo dos prazos", "Legítima defesa de terceiro / Excludente de ilicitude", "Tráfico de drogas / Abordagem policial e prova", "Peculato / Funcionário público e bem da autarquia", "Crime ambiental / Bombeiro e fauna silvestre", "Furto simples / Concurso de agentes — extinção da punibilidade", "Furto / Suspensão condicional do processo", "Estelionato em coautoria / Procedimento e defesa", "Prova digital / Acesso a celular desbloqueado", "Crimes contra o patrimônio / Receptação e boa-fé", "Competência territorial / Domicílio e local do fato", "Pensão por morte / Cônjuge — RGPS", "Contribuinte individual / Recolhimento previdenciário", "Teletrabalho e trabalho externo / Jornada e controle", "Doença ocupacional / Auxílio-acidente e reintegração", "Reclamação trabalhista / Defesa do reclamado", "Dispensa sem justa causa / Verbas rescisórias — instrutor", "Caseiro em chácara urbana / Vínculo empregatício", "Extinção do contrato / Cálculo das verbas rescisórias", "Fiscalização do trabalho / Auto de infração e defesa", "Reclamação trabalhista / Honorários advocatícios", "Dissídio coletivo / Negociação e arbitragem", "Rescisão consensual / Acordo e homologação trabalhista"]
+};
+
+const DATA_KEY = 'oab_pro_edicoes';
+
+const DADOS_INICIAIS = [
+  {
+    "id": 1,
+    "label": "1ª Edição",
+    "data": "28/03/2026",
+    "n_questoes": 80,
+    "n_inscritos": 208,
+    "n_presentes": 208,
+    "n_ausentes": 0,
+    "stats": {
+      "n": 208,
+      "media": 46.0,
+      "mediana": 45.0,
+      "dp": 10.6,
+      "maximo": 96.2,
+      "minimo": 21.2,
+      "apr50": 63,
+      "apr70": 5,
+      "pct50": 30.3,
+      "pct70": 2.4
+    },
+    "dist": {
+      "0-20": 0,
+      "20-30": 10,
+      "30-40": 42,
+      "40-50": 93,
+      "50-60": 41,
+      "60-70": 17,
+      "70-80": 3,
+      "80+": 2
+    },
+    "questoes": [
+      {
+        "q": "Q01",
+        "gab": "D",
+        "pct": 34.6,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q02",
+        "gab": "B",
+        "pct": 29.3,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q03",
+        "gab": "C",
+        "pct": 16.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q04",
+        "gab": "B",
+        "pct": 44.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q05",
+        "gab": "A",
+        "pct": 53.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q06",
+        "gab": "D",
+        "pct": 27.9,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q07",
+        "gab": "B",
+        "pct": 50.0,
+        "dif": "Média"
+      },
+      {
+        "q": "Q08",
+        "gab": "C",
+        "pct": 28.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q09",
+        "gab": "C",
+        "pct": 51.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q10",
+        "gab": "D",
+        "pct": 72.1,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q11",
+        "gab": "C",
+        "pct": 44.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q12",
+        "gab": "A",
+        "pct": 38.9,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q13",
+        "gab": "C",
+        "pct": 38.5,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q14",
+        "gab": "B",
+        "pct": 53.4,
+        "dif": "Média"
+      },
+      {
+        "q": "Q15",
+        "gab": "D",
+        "pct": 31.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q16",
+        "gab": "C",
+        "pct": 66.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q17",
+        "gab": "B",
+        "pct": 50.0,
+        "dif": "Média"
+      },
+      {
+        "q": "Q18",
+        "gab": "C",
+        "pct": 13.9,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q19",
+        "gab": "B",
+        "pct": 11.5,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q20",
+        "gab": "D",
+        "pct": 29.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q21",
+        "gab": "D",
+        "pct": 23.1,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q22",
+        "gab": "B",
+        "pct": 6.7,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q23",
+        "gab": "B",
+        "pct": 45.2,
+        "dif": "Média"
+      },
+      {
+        "q": "Q24",
+        "gab": "A",
+        "pct": 32.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q25",
+        "gab": "B",
+        "pct": 42.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q26",
+        "gab": "C",
+        "pct": 54.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q27",
+        "gab": "A",
+        "pct": 32.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q28",
+        "gab": "A",
+        "pct": 40.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q29",
+        "gab": "C",
+        "pct": 52.4,
+        "dif": "Média"
+      },
+      {
+        "q": "Q30",
+        "gab": "C",
+        "pct": 39.9,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q31",
+        "gab": "D",
+        "pct": 75.5,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q32",
+        "gab": "C",
+        "pct": 48.1,
+        "dif": "Média"
+      },
+      {
+        "q": "Q33",
+        "gab": "C",
+        "pct": 78.4,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q34",
+        "gab": "C",
+        "pct": 43.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q35",
+        "gab": "C",
+        "pct": 23.6,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q36",
+        "gab": "A",
+        "pct": 33.7,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q37",
+        "gab": "C",
+        "pct": 29.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q38",
+        "gab": "D",
+        "pct": 76.9,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q39",
+        "gab": "D",
+        "pct": 39.4,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q40",
+        "gab": "A",
+        "pct": 50.0,
+        "dif": "Média"
+      },
+      {
+        "q": "Q41",
+        "gab": "C",
+        "pct": 62.5,
+        "dif": "Média"
+      },
+      {
+        "q": "Q42",
+        "gab": "D",
+        "pct": 44.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q43",
+        "gab": "C",
+        "pct": 77.9,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q44",
+        "gab": "B",
+        "pct": 74.5,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q45",
+        "gab": "B",
+        "pct": 35.1,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q46",
+        "gab": "C",
+        "pct": 52.4,
+        "dif": "Média"
+      },
+      {
+        "q": "Q47",
+        "gab": "D",
+        "pct": 23.1,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q48",
+        "gab": "B",
+        "pct": 31.7,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q49",
+        "gab": "A",
+        "pct": 62.5,
+        "dif": "Média"
+      },
+      {
+        "q": "Q50",
+        "gab": "D",
+        "pct": 32.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q51",
+        "gab": "A",
+        "pct": 75.0,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q52",
+        "gab": "B",
+        "pct": 69.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q53",
+        "gab": "D",
+        "pct": 58.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q54",
+        "gab": "B",
+        "pct": 13.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q55",
+        "gab": "B",
+        "pct": 53.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q56",
+        "gab": "A",
+        "pct": 44.2,
+        "dif": "Média"
+      },
+      {
+        "q": "Q57",
+        "gab": "B",
+        "pct": 59.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q58",
+        "gab": "C",
+        "pct": 69.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q59",
+        "gab": "D",
+        "pct": 11.1,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q60",
+        "gab": "D",
+        "pct": 82.7,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q61",
+        "gab": "D",
+        "pct": 54.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q62",
+        "gab": "D",
+        "pct": 11.1,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q63",
+        "gab": "C",
+        "pct": 86.1,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q64",
+        "gab": "A",
+        "pct": 18.3,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q65",
+        "gab": "A",
+        "pct": 41.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q66",
+        "gab": "A",
+        "pct": 18.3,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q67",
+        "gab": "A",
+        "pct": 29.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q68",
+        "gab": "B",
+        "pct": 76.4,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q69",
+        "gab": "A",
+        "pct": 63.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q70",
+        "gab": "B",
+        "pct": 51.4,
+        "dif": "Média"
+      },
+      {
+        "q": "Q71",
+        "gab": "D",
+        "pct": 86.5,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q72",
+        "gab": "C",
+        "pct": 65.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q73",
+        "gab": "A",
+        "pct": 93.3,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q74",
+        "gab": "C",
+        "pct": 28.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q75",
+        "gab": "D",
+        "pct": 45.2,
+        "dif": "Média"
+      },
+      {
+        "q": "Q76",
+        "gab": "B",
+        "pct": 71.2,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q77",
+        "gab": "A",
+        "pct": 41.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q78",
+        "gab": "B",
+        "pct": 10.6,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q79",
+        "gab": "D",
+        "pct": 59.1,
+        "dif": "Média"
+      },
+      {
+        "q": "Q80",
+        "gab": "A",
+        "pct": 32.2,
+        "dif": "Difícil"
+      }
+    ],
+    "notas": [
+      46.2,
+      35.0,
+      42.5,
+      71.2,
+      46.2,
+      53.8,
+      38.8,
+      46.2,
+      61.3,
+      36.2,
+      50.0,
+      36.2,
+      43.8,
+      28.7,
+      42.5,
+      53.8,
+      60.0,
+      38.8,
+      46.2,
+      47.5,
+      52.5,
+      46.2,
+      38.8,
+      45.0,
+      55.0,
+      35.0,
+      43.8,
+      33.8,
+      75.0,
+      53.8,
+      40.0,
+      46.2,
+      48.8,
+      43.8,
+      32.5,
+      38.8,
+      61.3,
+      47.5,
+      36.2,
+      40.0,
+      23.8,
+      55.0,
+      48.8,
+      45.0,
+      40.0,
+      37.5,
+      41.2,
+      46.2,
+      47.5,
+      21.2,
+      38.8,
+      46.2,
+      40.0,
+      28.7,
+      51.2,
+      46.2,
+      80.0,
+      37.5,
+      47.5,
+      53.8,
+      43.8,
+      55.0,
+      68.8,
+      27.5,
+      42.5,
+      56.2,
+      46.2,
+      60.0,
+      38.8,
+      48.8,
+      41.2,
+      58.8,
+      40.0,
+      62.5,
+      46.2,
+      41.2,
+      55.0,
+      50.0,
+      58.8,
+      33.8,
+      42.5,
+      35.0,
+      36.2,
+      61.3,
+      42.5,
+      37.5,
+      50.0,
+      53.8,
+      32.5,
+      35.0,
+      55.0,
+      55.0,
+      51.2,
+      68.8,
+      38.8,
+      46.2,
+      47.5,
+      35.0,
+      40.0,
+      46.2,
+      45.0,
+      47.5,
+      41.2,
+      40.0,
+      45.0,
+      26.2,
+      45.0,
+      51.2,
+      35.0,
+      31.2,
+      51.2,
+      47.5,
+      66.2,
+      30.0,
+      48.8,
+      55.0,
+      27.5,
+      36.2,
+      57.5,
+      43.8,
+      55.0,
+      46.2,
+      38.8,
+      46.2,
+      40.0,
+      48.8,
+      57.5,
+      45.0,
+      50.0,
+      51.2,
+      26.2,
+      42.5,
+      38.8,
+      53.8,
+      56.2,
+      43.8,
+      60.0,
+      48.8,
+      40.0,
+      43.8,
+      42.5,
+      51.2,
+      45.0,
+      38.8,
+      45.0,
+      61.3,
+      31.2,
+      31.2,
+      30.0,
+      41.2,
+      51.2,
+      45.0,
+      62.5,
+      42.5,
+      37.5,
+      41.2,
+      41.2,
+      42.5,
+      38.8,
+      50.0,
+      60.0,
+      48.8,
+      33.8,
+      41.2,
+      65.0,
+      45.0,
+      41.2,
+      58.8,
+      55.0,
+      40.0,
+      66.2,
+      46.2,
+      37.5,
+      36.2,
+      55.0,
+      38.8,
+      42.5,
+      47.5,
+      63.7,
+      67.5,
+      38.8,
+      45.0,
+      53.8,
+      50.0,
+      41.2,
+      56.2,
+      28.7,
+      38.8,
+      51.2,
+      42.5,
+      36.2,
+      47.5,
+      46.2,
+      40.0,
+      26.2,
+      43.8,
+      43.8,
+      40.0,
+      55.0,
+      96.2,
+      72.5,
+      45.0,
+      45.0,
+      40.0,
+      47.5,
+      41.2,
+      43.8,
+      41.2
+    ]
+  },
+  {
+    "id": 2,
+    "label": "2ª Edição",
+    "data": "30/05/2026",
+    "n_questoes": 80,
+    "n_inscritos": 214,
+    "n_presentes": 96,
+    "n_ausentes": 118,
+    "stats": {
+      "n": 96,
+      "media": 48.6,
+      "mediana": 46.2,
+      "dp": 15.7,
+      "maximo": 91.2,
+      "minimo": 12.5,
+      "apr50": 41,
+      "apr70": 10,
+      "pct50": 42.7,
+      "pct70": 10.4
+    },
+    "dist": {
+      "0-20": 1,
+      "20-30": 10,
+      "30-40": 15,
+      "40-50": 29,
+      "50-60": 23,
+      "60-70": 8,
+      "70-80": 4,
+      "80+": 6
+    },
+    "questoes": [
+      {
+        "q": "Q01",
+        "gab": "B",
+        "pct": 46.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q02",
+        "gab": "D",
+        "pct": 15.6,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q03",
+        "gab": "C",
+        "pct": 19.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q04",
+        "gab": "D",
+        "pct": 67.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q05",
+        "gab": "A",
+        "pct": 64.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q06",
+        "gab": "A",
+        "pct": 61.5,
+        "dif": "Média"
+      },
+      {
+        "q": "Q07",
+        "gab": "B",
+        "pct": 30.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q08",
+        "gab": "C",
+        "pct": 39.6,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q09",
+        "gab": "A",
+        "pct": 57.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q10",
+        "gab": "D",
+        "pct": 91.7,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q11",
+        "gab": "A",
+        "pct": 59.4,
+        "dif": "Média"
+      },
+      {
+        "q": "Q12",
+        "gab": "C",
+        "pct": 47.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q13",
+        "gab": "B",
+        "pct": 19.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q14",
+        "gab": "B",
+        "pct": 29.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q15",
+        "gab": "C",
+        "pct": 56.2,
+        "dif": "Média"
+      },
+      {
+        "q": "Q16",
+        "gab": "A",
+        "pct": 29.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q17",
+        "gab": "C",
+        "pct": 75.0,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q18",
+        "gab": "B",
+        "pct": 30.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q19",
+        "gab": "A",
+        "pct": 25.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q20",
+        "gab": "C",
+        "pct": 68.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q21",
+        "gab": "A",
+        "pct": 33.3,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q22",
+        "gab": "A",
+        "pct": 53.1,
+        "dif": "Média"
+      },
+      {
+        "q": "Q23",
+        "gab": "C",
+        "pct": 74.0,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q24",
+        "gab": "A",
+        "pct": 37.5,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q25",
+        "gab": "D",
+        "pct": 61.5,
+        "dif": "Média"
+      },
+      {
+        "q": "Q26",
+        "gab": "C",
+        "pct": 62.5,
+        "dif": "Média"
+      },
+      {
+        "q": "Q27",
+        "gab": "D",
+        "pct": 44.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q28",
+        "gab": "C",
+        "pct": 29.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q29",
+        "gab": "D",
+        "pct": 34.4,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q30",
+        "gab": "C",
+        "pct": 65.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q31",
+        "gab": "A",
+        "pct": 50.0,
+        "dif": "Média"
+      },
+      {
+        "q": "Q32",
+        "gab": "B",
+        "pct": 58.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q33",
+        "gab": "A",
+        "pct": 41.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q34",
+        "gab": "B",
+        "pct": 54.2,
+        "dif": "Média"
+      },
+      {
+        "q": "Q35",
+        "gab": "A",
+        "pct": 33.3,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q36",
+        "gab": "C",
+        "pct": 25.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q37",
+        "gab": "D",
+        "pct": 28.1,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q38",
+        "gab": "B",
+        "pct": 72.9,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q39",
+        "gab": "A",
+        "pct": 71.9,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q40",
+        "gab": "C",
+        "pct": 25.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q41",
+        "gab": "A",
+        "pct": 89.6,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q42",
+        "gab": "C",
+        "pct": 65.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q43",
+        "gab": "B",
+        "pct": 68.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q44",
+        "gab": "B",
+        "pct": 51.0,
+        "dif": "Média"
+      },
+      {
+        "q": "Q45",
+        "gab": "C",
+        "pct": 65.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q46",
+        "gab": "B",
+        "pct": 39.6,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q47",
+        "gab": "B",
+        "pct": 32.3,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q48",
+        "gab": "B",
+        "pct": 29.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q49",
+        "gab": "D",
+        "pct": 60.4,
+        "dif": "Média"
+      },
+      {
+        "q": "Q50",
+        "gab": "C",
+        "pct": 44.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q51",
+        "gab": "A",
+        "pct": 40.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q52",
+        "gab": "A",
+        "pct": 66.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q53",
+        "gab": "B",
+        "pct": 63.5,
+        "dif": "Média"
+      },
+      {
+        "q": "Q54",
+        "gab": "D",
+        "pct": 36.5,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q55",
+        "gab": "A",
+        "pct": 20.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q56",
+        "gab": "B",
+        "pct": 46.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q57",
+        "gab": "C",
+        "pct": 65.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q58",
+        "gab": "D",
+        "pct": 39.6,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q59",
+        "gab": "A",
+        "pct": 46.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q60",
+        "gab": "A",
+        "pct": 20.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q61",
+        "gab": "C",
+        "pct": 34.4,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q62",
+        "gab": "D",
+        "pct": 25.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q63",
+        "gab": "B",
+        "pct": 25.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q64",
+        "gab": "B",
+        "pct": 42.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q65",
+        "gab": "B",
+        "pct": 86.5,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q66",
+        "gab": "A",
+        "pct": 50.0,
+        "dif": "Média"
+      },
+      {
+        "q": "Q67",
+        "gab": "A",
+        "pct": 47.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q68",
+        "gab": "C",
+        "pct": 59.4,
+        "dif": "Média"
+      },
+      {
+        "q": "Q69",
+        "gab": "C",
+        "pct": 76.0,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q70",
+        "gab": "B",
+        "pct": 50.0,
+        "dif": "Média"
+      },
+      {
+        "q": "Q71",
+        "gab": "D",
+        "pct": 77.1,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q72",
+        "gab": "B",
+        "pct": 39.6,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q73",
+        "gab": "D",
+        "pct": 63.5,
+        "dif": "Média"
+      },
+      {
+        "q": "Q74",
+        "gab": "A",
+        "pct": 27.1,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q75",
+        "gab": "B",
+        "pct": 56.2,
+        "dif": "Média"
+      },
+      {
+        "q": "Q76",
+        "gab": "A",
+        "pct": 22.9,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q77",
+        "gab": "C",
+        "pct": 70.8,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q78",
+        "gab": "A",
+        "pct": 56.2,
+        "dif": "Média"
+      },
+      {
+        "q": "Q79",
+        "gab": "A",
+        "pct": 58.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q80",
+        "gab": "C",
+        "pct": 34.4,
+        "dif": "Difícil"
+      }
+    ],
+    "notas": [
+      37.5,
+      46.2,
+      67.5,
+      61.3,
+      20.0,
+      47.5,
+      61.3,
+      46.2,
+      50.0,
+      57.5,
+      37.5,
+      51.2,
+      45.0,
+      60.0,
+      40.0,
+      55.0,
+      65.0,
+      61.3,
+      63.7,
+      30.0,
+      46.2,
+      45.0,
+      46.2,
+      65.0,
+      58.8,
+      48.8,
+      43.8,
+      51.2,
+      52.5,
+      50.0,
+      46.2,
+      42.5,
+      36.2,
+      81.2,
+      41.2,
+      55.0,
+      31.2,
+      48.8,
+      58.8,
+      45.0,
+      55.0,
+      20.0,
+      72.5,
+      47.5,
+      41.2,
+      28.7,
+      53.8,
+      37.5,
+      45.0,
+      12.5,
+      23.8,
+      41.2,
+      42.5,
+      27.5,
+      43.8,
+      58.8,
+      27.5,
+      53.8,
+      55.0,
+      28.7,
+      32.5,
+      71.2,
+      37.5,
+      42.5,
+      91.2,
+      26.2,
+      83.8,
+      42.5,
+      35.0,
+      86.2,
+      76.2,
+      58.8,
+      73.8,
+      35.0,
+      85.0,
+      50.0,
+      37.5,
+      55.0,
+      52.5,
+      52.5,
+      37.5,
+      38.8,
+      83.8,
+      58.8,
+      58.8,
+      23.8,
+      33.8,
+      46.2,
+      41.2,
+      47.5,
+      26.2,
+      46.2,
+      38.8,
+      40.0,
+      48.8,
+      58.8
+    ]
+  },
+  {
+    "id": 3,
+    "label": "3ª Edição",
+    "data": "22/08/2026",
+    "n_questoes": 80,
+    "n_inscritos": 292,
+    "n_presentes": 261,
+    "n_ausentes": 31,
+    "stats": {
+      "n": 261,
+      "media": 48.5,
+      "mediana": 47.5,
+      "dp": 11.9,
+      "maximo": 91.2,
+      "minimo": 22.5,
+      "apr50": 108,
+      "apr70": 12,
+      "pct50": 41.4,
+      "pct70": 4.6
+    },
+    "dist": {
+      "0-20": 0,
+      "20-30": 6,
+      "30-40": 57,
+      "40-50": 90,
+      "50-60": 58,
+      "60-70": 38,
+      "70-80": 10,
+      "80+": 2
+    },
+    "questoes": [
+      {
+        "q": "Q01",
+        "gab": "A",
+        "pct": 45.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q02",
+        "gab": "D",
+        "pct": 24.9,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q03",
+        "gab": "D",
+        "pct": 78.2,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q04",
+        "gab": "A",
+        "pct": 48.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q05",
+        "gab": "C",
+        "pct": 57.1,
+        "dif": "Média"
+      },
+      {
+        "q": "Q06",
+        "gab": "A",
+        "pct": 28.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q07",
+        "gab": "B",
+        "pct": 28.4,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q08",
+        "gab": "B",
+        "pct": 74.7,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q09",
+        "gab": "A",
+        "pct": 49.4,
+        "dif": "Média"
+      },
+      {
+        "q": "Q10",
+        "gab": "D",
+        "pct": 26.4,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q11",
+        "gab": "C",
+        "pct": 85.4,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q12",
+        "gab": "A",
+        "pct": 20.3,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q13",
+        "gab": "C",
+        "pct": 48.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q14",
+        "gab": "B",
+        "pct": 76.6,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q15",
+        "gab": "C",
+        "pct": 70.1,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q16",
+        "gab": "A",
+        "pct": 85.1,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q17",
+        "gab": "D",
+        "pct": 51.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q18",
+        "gab": "C",
+        "pct": 53.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q19",
+        "gab": "D",
+        "pct": 27.6,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q20",
+        "gab": "A",
+        "pct": 18.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q21",
+        "gab": "B",
+        "pct": 24.5,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q22",
+        "gab": "C",
+        "pct": 57.5,
+        "dif": "Média"
+      },
+      {
+        "q": "Q23",
+        "gab": "C",
+        "pct": 47.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q24",
+        "gab": "B",
+        "pct": 47.5,
+        "dif": "Média"
+      },
+      {
+        "q": "Q25",
+        "gab": "B",
+        "pct": 23.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q26",
+        "gab": "C",
+        "pct": 61.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q27",
+        "gab": "C",
+        "pct": 41.0,
+        "dif": "Média"
+      },
+      {
+        "q": "Q28",
+        "gab": "C",
+        "pct": 62.1,
+        "dif": "Média"
+      },
+      {
+        "q": "Q29",
+        "gab": "C",
+        "pct": 31.4,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q30",
+        "gab": "D",
+        "pct": 25.7,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q31",
+        "gab": "D",
+        "pct": 64.4,
+        "dif": "Média"
+      },
+      {
+        "q": "Q32",
+        "gab": "D",
+        "pct": 71.3,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q33",
+        "gab": "D",
+        "pct": 31.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q34",
+        "gab": "A",
+        "pct": 53.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q35",
+        "gab": "B",
+        "pct": 69.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q36",
+        "gab": "D",
+        "pct": 20.3,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q37",
+        "gab": "C",
+        "pct": 69.0,
+        "dif": "Média"
+      },
+      {
+        "q": "Q38",
+        "gab": "D",
+        "pct": 89.7,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q39",
+        "gab": "D",
+        "pct": 72.4,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q40",
+        "gab": "B",
+        "pct": 13.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q41",
+        "gab": "B",
+        "pct": 31.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q42",
+        "gab": "D",
+        "pct": 16.5,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q43",
+        "gab": "B",
+        "pct": 57.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q44",
+        "gab": "C",
+        "pct": 51.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q45",
+        "gab": "B",
+        "pct": 31.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q46",
+        "gab": "A",
+        "pct": 42.1,
+        "dif": "Média"
+      },
+      {
+        "q": "Q47",
+        "gab": "A",
+        "pct": 21.8,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q48",
+        "gab": "B",
+        "pct": 65.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q49",
+        "gab": "A",
+        "pct": 29.1,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q50",
+        "gab": "B",
+        "pct": 71.3,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q51",
+        "gab": "D",
+        "pct": 11.9,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q52",
+        "gab": "D",
+        "pct": 69.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q53",
+        "gab": "D",
+        "pct": 60.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q54",
+        "gab": "B",
+        "pct": 47.1,
+        "dif": "Média"
+      },
+      {
+        "q": "Q55",
+        "gab": "A",
+        "pct": 46.4,
+        "dif": "Média"
+      },
+      {
+        "q": "Q56",
+        "gab": "D",
+        "pct": 15.3,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q57",
+        "gab": "C",
+        "pct": 91.2,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q58",
+        "gab": "A",
+        "pct": 37.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q59",
+        "gab": "D",
+        "pct": 67.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q60",
+        "gab": "A",
+        "pct": 55.9,
+        "dif": "Média"
+      },
+      {
+        "q": "Q61",
+        "gab": "B",
+        "pct": 34.5,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q62",
+        "gab": "B",
+        "pct": 77.4,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q63",
+        "gab": "C",
+        "pct": 50.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q64",
+        "gab": "A",
+        "pct": 40.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q65",
+        "gab": "D",
+        "pct": 69.0,
+        "dif": "Média"
+      },
+      {
+        "q": "Q66",
+        "gab": "C",
+        "pct": 62.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q67",
+        "gab": "B",
+        "pct": 61.7,
+        "dif": "Média"
+      },
+      {
+        "q": "Q68",
+        "gab": "C",
+        "pct": 27.2,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q69",
+        "gab": "B",
+        "pct": 41.8,
+        "dif": "Média"
+      },
+      {
+        "q": "Q70",
+        "gab": "B",
+        "pct": 50.2,
+        "dif": "Média"
+      },
+      {
+        "q": "Q71",
+        "gab": "B",
+        "pct": 52.1,
+        "dif": "Média"
+      },
+      {
+        "q": "Q72",
+        "gab": "A",
+        "pct": 28.0,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q73",
+        "gab": "B",
+        "pct": 57.1,
+        "dif": "Média"
+      },
+      {
+        "q": "Q74",
+        "gab": "B",
+        "pct": 61.3,
+        "dif": "Média"
+      },
+      {
+        "q": "Q75",
+        "gab": "D",
+        "pct": 34.1,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q76",
+        "gab": "C",
+        "pct": 34.5,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q77",
+        "gab": "A",
+        "pct": 68.6,
+        "dif": "Média"
+      },
+      {
+        "q": "Q78",
+        "gab": "D",
+        "pct": 73.2,
+        "dif": "Fácil"
+      },
+      {
+        "q": "Q79",
+        "gab": "A",
+        "pct": 27.6,
+        "dif": "Difícil"
+      },
+      {
+        "q": "Q80",
+        "gab": "C",
+        "pct": 33.7,
+        "dif": "Difícil"
+      }
+    ],
+    "notas": [
+      22.5,
+      23.8,
+      25.0,
+      25.0,
+      25.0,
+      28.7,
+      30.0,
+      30.0,
+      30.0,
+      30.0,
+      30.0,
+      30.0,
+      31.2,
+      31.2,
+      31.2,
+      31.2,
+      32.5,
+      32.5,
+      32.5,
+      33.8,
+      33.8,
+      33.8,
+      33.8,
+      33.8,
+      33.8,
+      33.8,
+      33.8,
+      33.8,
+      33.8,
+      35.0,
+      35.0,
+      35.0,
+      35.0,
+      35.0,
+      35.0,
+      36.2,
+      36.2,
+      36.2,
+      36.2,
+      36.2,
+      36.2,
+      36.2,
+      37.5,
+      37.5,
+      37.5,
+      37.5,
+      37.5,
+      37.5,
+      37.5,
+      37.5,
+      37.5,
+      38.8,
+      38.8,
+      38.8,
+      38.8,
+      38.8,
+      38.8,
+      38.8,
+      38.8,
+      38.8,
+      38.8,
+      38.8,
+      38.8,
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      40.0,
+      41.2,
+      41.2,
+      41.2,
+      41.2,
+      41.2,
+      41.2,
+      41.2,
+      42.5,
+      42.5,
+      42.5,
+      42.5,
+      42.5,
+      42.5,
+      42.5,
+      42.5,
+      42.5,
+      42.5,
+      42.5,
+      43.8,
+      43.8,
+      43.8,
+      43.8,
+      43.8,
+      43.8,
+      43.8,
+      43.8,
+      43.8,
+      43.8,
+      43.8,
+      45.0,
+      45.0,
+      45.0,
+      45.0,
+      45.0,
+      45.0,
+      45.0,
+      45.0,
+      45.0,
+      45.0,
+      45.0,
+      45.0,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      46.2,
+      47.5,
+      47.5,
+      47.5,
+      47.5,
+      47.5,
+      47.5,
+      47.5,
+      47.5,
+      47.5,
+      47.5,
+      47.5,
+      48.8,
+      48.8,
+      48.8,
+      48.8,
+      48.8,
+      48.8,
+      48.8,
+      48.8,
+      48.8,
+      48.8,
+      48.8,
+      48.8,
+      48.8,
+      50.0,
+      50.0,
+      50.0,
+      50.0,
+      50.0,
+      50.0,
+      50.0,
+      51.2,
+      51.2,
+      51.2,
+      51.2,
+      51.2,
+      51.2,
+      51.2,
+      51.2,
+      52.5,
+      52.5,
+      52.5,
+      52.5,
+      52.5,
+      52.5,
+      52.5,
+      52.5,
+      52.5,
+      52.5,
+      52.5,
+      53.8,
+      53.8,
+      53.8,
+      53.8,
+      53.8,
+      53.8,
+      53.8,
+      53.8,
+      55.0,
+      55.0,
+      55.0,
+      55.0,
+      55.0,
+      55.0,
+      55.0,
+      55.0,
+      55.0,
+      56.2,
+      56.2,
+      56.2,
+      56.2,
+      56.2,
+      57.5,
+      57.5,
+      57.5,
+      57.5,
+      58.8,
+      58.8,
+      58.8,
+      58.8,
+      58.8,
+      58.8,
+      60.0,
+      60.0,
+      60.0,
+      61.3,
+      61.3,
+      61.3,
+      61.3,
+      61.3,
+      61.3,
+      62.5,
+      62.5,
+      62.5,
+      62.5,
+      62.5,
+      63.7,
+      63.7,
+      63.7,
+      63.7,
+      63.7,
+      63.7,
+      63.7,
+      63.7,
+      63.7,
+      65.0,
+      65.0,
+      65.0,
+      65.0,
+      65.0,
+      66.2,
+      66.2,
+      66.2,
+      67.5,
+      67.5,
+      67.5,
+      67.5,
+      67.5,
+      68.8,
+      68.8,
+      70.0,
+      71.2,
+      72.5,
+      73.8,
+      73.8,
+      75.0,
+      75.0,
+      76.2,
+      78.8,
+      78.8,
+      81.2,
+      91.2
+    ]
+  }
+];
+
+// --- STATE ---
+let edicoes = [];
+let currentEd = 'all';
+let currentEdQ = '1';
+let qFilter = 'all';
+let qSortKey = 'q';
+let qSortAsc = true;
+let charts = {};
+
+function loadData() {
+  const DATA_VERSION = 'v9-disc3fix';
+  const storedVersion = localStorage.getItem(DATA_KEY + '_version');
+  const stored = localStorage.getItem(DATA_KEY);
+
+  if (stored && storedVersion === DATA_VERSION) {
+    try { edicoes = JSON.parse(stored); } catch(e) { edicoes = DADOS_INICIAIS; }
+  } else {
+    // Versão desatualizada ou inexistente: usa os dados embutidos mais recentes
+    edicoes = DADOS_INICIAIS;
+    localStorage.setItem(DATA_KEY + '_version', DATA_VERSION);
+    saveData();
+  }
+}
+function saveData() {
+  localStorage.setItem(DATA_KEY, JSON.stringify(edicoes));
+}
+
+// --- PAGES ---
+let currentPage = 'visao-geral';
+function showPage(page) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  currentPage = page;
+  if (page === 'visao-geral') renderVisaoGeral();
+  if (page === 'questoes') renderQuestoesPage();
+  if (page === 'comparativo') renderComparativo();
+  if (page === 'disciplinas') renderDisciplinasPage();
+}
+
+// --- EDITION SELECTOR ---
+function buildEdTabs() {
+  ['ed-tabs','ed-tabs-q'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '';
+    if (id === 'ed-tabs') {
+      const allBtn = document.createElement('button');
+      allBtn.className = 'ed-tab all-tab' + (currentEd === 'all' ? ' active' : '');
+      allBtn.textContent = 'Todas as edições';
+      allBtn.onclick = function() { selectEd('all', this); };
+      el.appendChild(allBtn);
+    }
+    edicoes.forEach(e => {
+      const btn = document.createElement('button');
+      const key = String(e.id);
+      if (id === 'ed-tabs') {
+        btn.className = 'ed-tab' + (currentEd === key ? ' active' : '');
+        btn.textContent = e.label;
+        btn.onclick = function() { selectEd(key, this); };
+      } else {
+        btn.className = 'ed-tab' + (currentEdQ === key ? ' active' : '');
+        btn.textContent = e.label;
+        btn.onclick = function() { selectEdQ(key, this); };
+      }
+      el.appendChild(btn);
+    });
+  });
+}
+
+function selectEd(id, btn) {
+  currentEd = id;
+  document.querySelectorAll('#ed-tabs .ed-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderVisaoGeral();
+}
+
+function selectEdQ(id, btn) {
+  currentEdQ = id;
+  document.querySelectorAll('#ed-tabs-q .ed-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderQuestoesPage();
+}
+
+// --- GET ACTIVE EDITIONS ---
+function getActiveEdicoes() {
+  if (currentEd === 'all') return edicoes;
+  return edicoes.filter(e => String(e.id) === currentEd);
+}
+function getActiveEdQ() {
+  return edicoes.find(e => String(e.id) === currentEdQ) || edicoes[0];
+}
+
+// --- MERGE STATS ---
+function mergeStats(eds) {
+  if (eds.length === 1) return eds[0].stats;
+  const all = eds.flatMap(e => {
+    const n = e.stats.n;
+    const arr = [];
+    for(let i=0;i<n;i++) arr.push(e.stats.media);
+    return arr;
+  });
+  const totalN = eds.reduce((s,e) => s + e.stats.n, 0);
+  const totalApr50 = eds.reduce((s,e) => s + e.stats.apr50, 0);
+  const totalApr70 = eds.reduce((s,e) => s + e.stats.apr70, 0);
+  const wavgMedia = eds.reduce((s,e) => s + e.stats.media * e.stats.n, 0) / totalN;
+  const maxMax = Math.max(...eds.map(e => e.stats.maximo));
+  const minMin = Math.min(...eds.map(e => e.stats.minimo));
+  return {
+    n: totalN,
+    media: Math.round(wavgMedia * 10)/10,
+    mediana: eds[0].stats.mediana,
+    dp: Math.round(eds.reduce((s,e) => s + e.stats.dp * e.stats.n, 0) / totalN * 10)/10,
+    maximo: maxMax, minimo: minMin,
+    apr50: totalApr50, apr70: totalApr70,
+    pct50: Math.round(totalApr50/totalN*1000)/10,
+    pct70: Math.round(totalApr70/totalN*1000)/10
+  };
+}
+
+function mergeDist(eds) {
+  const keys = ['0-20','20-30','30-40','40-50','50-60','60-70','70-80','80+'];
+  const out = {};
+  keys.forEach(k => { out[k] = eds.reduce((s,e) => s + (e.dist[k]||0), 0); });
+  return out;
+}
+
+// --- RENDER VISÃO GERAL ---
+function renderVisaoGeral() {
+  buildEdTabs();
+  const eds = getActiveEdicoes();
+  const s = mergeStats(eds);
+  const totalInscritos = eds.reduce((a,e) => a + e.n_inscritos, 0);
+  const totalAusentes = eds.reduce((a,e) => a + e.n_ausentes, 0);
+  const absencePct = totalInscritos > 0 ? Math.round(totalAusentes/totalInscritos*100) : 0;
+
+  document.getElementById('metric-grid').innerHTML = `
+    <div class="metric-card">
+      <div class="metric-label">Participantes</div>
+      <div class="metric-value">${s.n}</div>
+      <div class="metric-sub">${totalInscritos} inscritos • ${absencePct}% ausência</div>
+    </div>
+    <div class="metric-card ${s.media >= 50 ? 'good' : s.media >= 40 ? 'warn' : 'bad'}">
+      <div class="metric-label">Média geral</div>
+      <div class="metric-value">${s.media}%</div>
+      <div class="metric-sub">Mediana: ${s.mediana}%</div>
+    </div>
+    <div class="metric-card ${s.pct50 >= 50 ? 'good' : s.pct50 >= 30 ? 'warn' : 'bad'}">
+      <div class="metric-label">Aprovação ≥ 50%</div>
+      <div class="metric-value">${s.pct50}%</div>
+      <div class="metric-sub">${s.apr50} de ${s.n} participantes</div>
+    </div>
+    <div class="metric-card ${s.pct70 >= 20 ? 'good' : s.pct70 >= 10 ? 'warn' : 'bad'}">
+      <div class="metric-label">Alto desempenho ≥ 70%</div>
+      <div class="metric-value">${s.pct70}%</div>
+      <div class="metric-sub">${s.apr70} participantes</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Maior nota</div>
+      <div class="metric-value good">${s.maximo}%</div>
+      <div class="metric-sub">Desvio padrão: ${s.dp}pp</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Menor nota</div>
+      <div class="metric-value bad">${s.minimo}%</div>
+      <div class="metric-sub">Amplitude: ${Math.round((s.maximo-s.minimo)*10)/10}pp</div>
+    </div>
+  `;
+
+  renderDistChart(eds);
+  renderDifChart(eds);
+  renderPerQChart(eds);
+  renderEvolucaoChart();
+  renderHighlights();
+}
+
+function renderDistChart(eds) {
+  const dist = mergeDist(eds);
+  const labels = ['0–20%','20–30%','30–40%','40–50%','50–60%','60–70%','70–80%','80%+'];
+  const keys = ['0-20','20-30','30-40','40-50','50-60','60-70','70-80','80+'];
+  const data = keys.map(k => dist[k]||0);
+  const colors = ['#e24b4b','#e24b4b','#e8922a','#e8922a','#3266ad','#3266ad','#1a7a4a','#1a7a4a'];
+  destroyChart('chartDist');
+  charts['chartDist'] = new Chart(document.getElementById('chartDist'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Participantes', data, backgroundColor: colors, borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+}
+
+function renderDifChart(eds) {
+  const allQ = eds.flatMap(e => e.questoes);
+  const facil = allQ.filter(q => q.dif==='Fácil').length;
+  const media = allQ.filter(q => q.dif==='Média').length;
+  const dificil = allQ.filter(q => q.dif==='Difícil').length;
+  destroyChart('chartDif');
+  charts['chartDif'] = new Chart(document.getElementById('chartDif'), {
+    type: 'doughnut',
+    data: { labels: ['Fácil (≥70%)', 'Média (40-69%)', 'Difícil (<40%)'], datasets: [{ data: [facil, media, dificil], backgroundColor: ['#1a7a4a','#e8922a','#e24b4b'], borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { padding: 16, boxWidth: 12, font: { size: 12 } } } } }
+  });
+}
+
+function renderPerQChart(eds) {
+  if (eds.length === 1) {
+    const e = eds[0];
+    const labels = e.questoes.map(q => q.q);
+    const data = e.questoes.map(q => q.pct);
+    const colors = data.map(p => p >= 70 ? '#1a7a4a' : p >= 40 ? '#e8922a' : '#e24b4b');
+    destroyChart('chartPerQ');
+    document.getElementById('perq-sub').textContent = `% de acerto por questão — ${e.label}`;
+    charts['chartPerQ'] = new Chart(document.getElementById('chartPerQ'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label: '% acerto', data, backgroundColor: colors, borderRadius: 2 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }, x: { ticks: { font: { size: 10 }, maxRotation: 0 } } } }
+    });
+  } else {
+    const datasets = eds.map((e, i) => ({
+      label: e.label,
+      data: e.questoes.map(q => q.pct),
+      backgroundColor: i === 0 ? 'rgba(45,91,227,0.7)' : 'rgba(192,57,43,0.7)',
+      borderRadius: 2
+    }));
+    const maxQ = Math.max(...eds.map(e => e.questoes.length));
+    const labels = Array.from({length: maxQ}, (_,i) => `Q${String(i+1).padStart(2,'0')}`);
+    destroyChart('chartPerQ');
+    document.getElementById('perq-sub').textContent = 'Comparação do % de acerto por questão entre edições';
+    charts['chartPerQ'] = new Chart(document.getElementById('chartPerQ'), {
+      type: 'bar',
+      data: { labels, datasets },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } } }, scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }, x: { ticks: { font: { size: 10 }, maxRotation: 0 } } } }
+    });
+  }
+}
+
+function renderEvolucaoChart() {
+  const labels = edicoes.map(e => e.label);
+  destroyChart('chartEvolucao');
+  charts['chartEvolucao'] = new Chart(document.getElementById('chartEvolucao'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Média (%)', data: edicoes.map(e => e.stats.media), borderColor: '#2D5BE3', backgroundColor: 'rgba(45,91,227,0.08)', tension: 0.3, fill: true, pointRadius: 5, pointBackgroundColor: '#2D5BE3' },
+        { label: 'Aprovação ≥ 50% (%)', data: edicoes.map(e => e.stats.pct50), borderColor: '#1a7a4a', backgroundColor: 'rgba(26,122,74,0.06)', tension: 0.3, fill: true, pointRadius: 5, pointBackgroundColor: '#1a7a4a', borderDash: [4,3] },
+        { label: 'Alto desempenho ≥ 70% (%)', data: edicoes.map(e => e.stats.pct70), borderColor: '#e8922a', backgroundColor: 'rgba(232,146,42,0.05)', tension: 0.3, fill: true, pointRadius: 5, pointBackgroundColor: '#e8922a', borderDash: [2,3] }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } } }, scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } } }
+  });
+}
+
+// --- DESTAQUES POR EDIÇÃO ---
+function renderHighlights() {
+  const container = document.getElementById('highlights-section');
+  if (!container) return;
+
+  const tagColors = ['tag-1', 'tag-2', 'tag-3', 'tag-1'];
+
+  const cards = edicoes.map((e, idx) => {
+    // Agrupa questões por disciplina usando DISC_MAP da edição
+    const discAcertos = {};
+    const discTotal = {};
+    e.questoes.forEach(q => {
+      const dm = DISC_MAP[e.id];
+      const num = parseInt(q.q.replace('Q','')) - 1; // 0-based index
+      const disc = (dm && dm[num]) ? dm[num] : 'Outras';
+      if (!discTotal[disc]) { discTotal[disc] = 0; discAcertos[disc] = 0; }
+      discTotal[disc]++;
+      discAcertos[disc] += q.pct / 100;
+    });
+
+    const discs = Object.keys(discTotal).filter(d => d !== 'Outras' && discTotal[d] >= 2);
+    if (discs.length === 0) return null;
+
+    const discRates = discs.map(d => ({
+      disc: d,
+      taxa: Math.round(discAcertos[d] / discTotal[d] * 1000) / 10,
+      total: discTotal[d]
+    }));
+    discRates.sort((a,b) => b.taxa - a.taxa);
+    const best = discRates[0];
+    const worst = discRates[discRates.length - 1];
+
+    const sorted = [...e.questoes].sort((a,b) => b.pct - a.pct);
+    const bestQ = sorted[0];
+    const worstQ = sorted[sorted.length - 1];
+
+    return { e, idx, best, worst, bestQ, worstQ };
+  }).filter(Boolean);
+
+  if (cards.length === 0) { container.innerHTML = ''; return; }
+
+  let html = `<div class="highlights-title">Destaques por edição</div><div class="highlights-grid">`;
+
+  cards.forEach(({ e, idx, best, worst, bestQ, worstQ }) => {
+    const tagClass = tagColors[idx] || 'tag-1';
+    // Disciplina da questão mais fácil/difícil via DISC_MAP
+    const dm = DISC_MAP[e.id];
+    const bestQNum = parseInt(bestQ.q.replace('Q','')) - 1;
+    const worstQNum = parseInt(worstQ.q.replace('Q','')) - 1;
+    const bestQDisc = (dm && dm[bestQNum]) ? dm[bestQNum] : '';
+    const worstQDisc = (dm && dm[worstQNum]) ? dm[worstQNum] : '';
+    const bestTema = (bestQ.tema && bestQ.tema !== 'A definir') ? bestQ.tema : (bestQDisc || 'questão mais acertada');
+    const worstTema = (worstQ.tema && worstQ.tema !== 'A definir') ? worstQ.tema : (worstQDisc || 'questão mais errada');
+    const bestMetaSub = bestQDisc && bestTema !== bestQDisc ? ' · ' + bestQDisc : '';
+    const worstMetaSub = worstQDisc && worstTema !== worstQDisc ? ' · ' + worstQDisc : '';
+    html += `
+    <div class="highlight-card">
+      <div class="highlight-header">
+        <div class="highlight-ed-label">${e.label}</div>
+        <span class="compare-tag ${tagClass}">${e.data}</span>
+      </div>
+      <div class="highlight-row">
+        <div class="highlight-icon pos">✦</div>
+        <div class="highlight-info">
+          <div class="highlight-disc">${best.disc}</div>
+          <div class="highlight-meta">Melhor disciplina · ${best.total} questões</div>
+        </div>
+        <div class="highlight-pct pos">${best.taxa}%</div>
+      </div>
+      <div class="highlight-row">
+        <div class="highlight-icon neg">▼</div>
+        <div class="highlight-info">
+          <div class="highlight-disc">${worst.disc}</div>
+          <div class="highlight-meta">Disciplina mais difícil · ${worst.total} questões</div>
+        </div>
+        <div class="highlight-pct neg">${worst.taxa}%</div>
+      </div>
+      <div class="highlight-row">
+        <div class="highlight-icon pos">★</div>
+        <div class="highlight-info">
+          <div class="highlight-disc">${bestQ.q} — ${bestTema}</div>
+          <div class="highlight-meta">Questão mais fácil${bestMetaSub}</div>
+        </div>
+        <div class="highlight-pct pos">${bestQ.pct}%</div>
+      </div>
+      <div class="highlight-row">
+        <div class="highlight-icon neg">✕</div>
+        <div class="highlight-info">
+          <div class="highlight-disc">${worstQ.q} — ${worstTema}</div>
+          <div class="highlight-meta">Questão mais difícil${worstMetaSub}</div>
+        </div>
+        <div class="highlight-pct neg">${worstQ.pct}%</div>
+      </div>
+    </div>`;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+// --- RENDER QUESTÕES ---
+function renderQuestoesPage() {
+  buildEdTabs();
+  renderQTable();
+  renderHardChart();
+}
+
+function filterQ(f, btn) {
+  qFilter = f;
+  document.querySelectorAll('.q-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderQTable();
+}
+
+function sortQ(key) {
+  if (qSortKey === key) qSortAsc = !qSortAsc;
+  else { qSortKey = key; qSortAsc = true; }
+  renderQTable();
+}
+
+function renderQTable() {
+  const e = getActiveEdQ();
+  if (!e) return;
+  const search = document.getElementById('q-search').value.toLowerCase();
+  let qs = [...e.questoes];
+  if (qFilter !== 'all') qs = qs.filter(q => q.dif === qFilter);
+  if (search) qs = qs.filter(q => q.q.toLowerCase().includes(search));
+  qs.sort((a,b) => {
+    let av = a[qSortKey], bv = b[qSortKey];
+    if (typeof av === 'string') return qSortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    return qSortAsc ? av - bv : bv - av;
+  });
+  const tbody = document.getElementById('q-tbody');
+  tbody.innerHTML = '';
+  qs.forEach(q => {
+    const pct = q.pct;
+    const barColor = pct >= 70 ? '#1a7a4a' : pct >= 40 ? '#e8922a' : '#e24b4b';
+    const dif = q.dif === 'Fácil' ? 'facil' : q.dif === 'Média' ? 'media' : 'dificil';
+    const edId = parseInt(currentEdQ);
+    const temaArr = TEMA_MAP[edId] || [];
+    const qIdx = parseInt(q.q.replace('Q','')) - 1;
+    const tema = temaArr[qIdx] || '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:600;font-size:13px;">${q.q}</td>
+      <td><span class="gab-badge">${q.gab}</span></td>
+      <td style="font-size:12px;color:var(--text2);max-width:220px;">${tema}</td>
+      <td>
+        <div class="bar-wrap">
+          <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${barColor};"></div></div>
+          <span class="pct-label" style="color:${barColor};">${pct}%</span>
+        </div>
+      </td>
+      <td><span class="badge ${dif}">${q.dif}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderHardChart() {
+  const e = getActiveEdQ();
+  if (!e) return;
+  const sorted = [...e.questoes].sort((a,b) => a.pct - b.pct).slice(0, 10);
+  const wrap = document.getElementById('hard-chart-wrap');
+  wrap.style.height = (sorted.length * 42 + 60) + 'px';
+  destroyChart('chartHard');
+  charts['chartHard'] = new Chart(document.getElementById('chartHard'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(q => q.q),
+      datasets: [{ label: '% acerto', data: sorted.map(q => q.pct), backgroundColor: sorted.map(q => q.pct < 20 ? '#e24b4b' : '#e8922a'), borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, max: 40, ticks: { callback: v => v + '%' } } }
+    }
+  });
+}
+
+// --- RENDER COMPARATIVO ---
+function renderComparativo() {
+  const grid = document.getElementById('compare-cards');
+  const colors = ['tag-1', 'tag-2', 'tag-3', 'tag-1'];
+  grid.innerHTML = '';
+  edicoes.forEach((e, idx) => {
+    const s = e.stats;
+    const card = document.createElement('div');
+    card.className = 'compare-card';
+    card.innerHTML = `
+      <div class="compare-header">
+        <div style="font-size:15px;font-weight:700;">${e.label}</div>
+        <span class="compare-tag ${colors[idx]||'tag-1'}">${e.data}</span>
+      </div>
+      <div class="stat-row"><span class="label">Participantes presentes</span><span class="value">${s.n}</span></div>
+      <div class="stat-row"><span class="label">Inscritos / Ausência</span><span class="value">${e.n_inscritos} / ${Math.round(e.n_ausentes/e.n_inscritos*100)||0}%</span></div>
+      <div class="stat-row"><span class="label">Média geral</span><span class="value" style="color:${s.media>=50?'var(--success)':s.media>=40?'var(--warning)':'var(--danger)'};">${s.media}%</span></div>
+      <div class="stat-row"><span class="label">Mediana</span><span class="value">${s.mediana}%</span></div>
+      <div class="stat-row"><span class="label">Desvio padrão</span><span class="value">${s.dp}pp</span></div>
+      <div class="stat-row"><span class="label">Maior nota</span><span class="value" style="color:var(--success);">${s.maximo}%</span></div>
+      <div class="stat-row"><span class="label">Menor nota</span><span class="value" style="color:var(--danger);">${s.minimo}%</span></div>
+      <div class="stat-row"><span class="label">Aprovação ≥ 50%</span><span class="value">${s.pct50}% (${s.apr50})</span></div>
+      <div class="stat-row"><span class="label">Alto desempenho ≥ 70%</span><span class="value">${s.pct70}% (${s.apr70})</span></div>
+      <div class="stat-row"><span class="label">Questões: Fácil / Média / Difícil</span><span class="value" style="font-size:12px;">${e.questoes.filter(q=>q.dif==='Fácil').length} / ${e.questoes.filter(q=>q.dif==='Média').length} / ${e.questoes.filter(q=>q.dif==='Difícil').length}</span></div>
+    `;
+    grid.appendChild(card);
+  });
+
+  renderMediasChart();
+  renderAprovacaoChart();
+  renderDistCompChart();
+}
+
+function renderMediasChart() {
+  destroyChart('chartMedias');
+  charts['chartMedias'] = new Chart(document.getElementById('chartMedias'), {
+    type: 'line',
+    data: { labels: edicoes.map(e => e.label), datasets: [{ label: 'Média geral', data: edicoes.map(e => e.stats.media), borderColor: '#2D5BE3', backgroundColor: 'rgba(45,91,227,0.1)', tension: 0.3, fill: true, pointRadius: 6, pointBackgroundColor: '#2D5BE3', pointBorderColor: '#fff', pointBorderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 30, max: 70, ticks: { callback: v => v + '%' } } } }
+  });
+}
+
+function renderAprovacaoChart() {
+  destroyChart('chartAprovacao');
+  charts['chartAprovacao'] = new Chart(document.getElementById('chartAprovacao'), {
+    type: 'bar',
+    data: { labels: edicoes.map(e => e.label), datasets: [{ label: 'Aprovação ≥ 50%', data: edicoes.map(e => e.stats.pct50), backgroundColor: edicoes.map(e => e.stats.pct50 >= 50 ? '#1a7a4a' : e.stats.pct50 >= 35 ? '#e8922a' : '#e24b4b'), borderRadius: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } } }
+  });
+}
+
+function renderDistCompChart() {
+  const keys = ['0-20','20-30','30-40','40-50','50-60','60-70','70-80','80+'];
+  const labels = ['0–20%','20–30%','30–40%','40–50%','50–60%','60–70%','70–80%','80%+'];
+  const edColors = ['rgba(45,91,227,0.7)', 'rgba(192,57,43,0.7)', 'rgba(26,122,74,0.7)', 'rgba(232,146,42,0.7)'];
+  destroyChart('chartDistComp');
+  charts['chartDistComp'] = new Chart(document.getElementById('chartDistComp'), {
+    type: 'bar',
+    data: { labels, datasets: edicoes.map((e, i) => ({ label: e.label, data: keys.map(k => e.dist[k]||0), backgroundColor: edColors[i % edColors.length], borderRadius: 3 })) },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 5 } } } }
+  });
+}
+
+// --- FAIXAS FIXAS DE DISCIPLINA (mesmo padrão usado nas edições anteriores) ---
+const FAIXAS_DISCIPLINA = [
+  [1,8,'Ética e Estatuto'],[9,10,'Filosofia do Direito'],[11,16,'Direito Constitucional'],
+  [17,18,'Direitos Humanos'],[19,20,'Direito Eleitoral'],[21,22,'Direito Internacional'],
+  [23,24,'Direito Financeiro'],[25,29,'Direito Tributário'],[30,34,'Direito Administrativo'],
+  [35,36,'Direito Ambiental'],[37,42,'Direito Civil'],[43,44,'Direito da Criança e do Adolescente'],
+  [45,46,'Direito do Consumidor'],[47,50,'Direito Empresarial'],[51,56,'Processo Civil'],
+  [57,62,'Direito Penal'],[63,68,'Processo Penal'],[69,70,'Direito Previdenciário'],
+  [71,75,'Direito do Trabalho'],[76,80,'Processo do Trabalho'],
+];
+
+function disciplinaPorQuestao(num) {
+  for (const [ini, fim, disc] of FAIXAS_DISCIPLINA) {
+    if (num >= ini && num <= fim) return disc;
+  }
+  return 'Outras';
+}
+
+// --- ESTADO DOS ARQUIVOS CARREGADOS ---
+let uploadState = { questoesDisc: null, planilha: null, nq: null };
+
+// --- LER ARQUIVO .DOCX DE QUESTÕES ---
+async function handleFileQuestoes(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const label = document.getElementById('label-questoes');
+  label.textContent = `⏳ Lendo ${file.name}...`;
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    const text = result.value;
+
+    // Detectar números de questão no texto bruto (padrão: linha isolada com número 1-80)
+    const lines = text.split('\n');
+    const foundNums = new Set();
+    for (const line of lines) {
+      const trimmed = line.trim();
+      const m = trimmed.match(/^(\d{1,2})$/);
+      if (m) {
+        const n = parseInt(m[1]);
+        if (n >= 1 && n <= 80) foundNums.add(n);
+      }
+    }
+
+    const totalEncontradas = foundNums.size;
+    uploadState.questoesDisc = FAIXAS_DISCIPLINA;
+    uploadState.nq = totalEncontradas >= 70 ? 80 : totalEncontradas; // assume padrão de 80 se maioria identificada
+
+    label.innerHTML = `✓ <strong>${file.name}</strong><br><span style="font-size:11px;color:var(--text3);">${totalEncontradas} questões identificadas</span>`;
+    label.style.borderColor = 'var(--accent)';
+    label.style.color = 'var(--accent)';
+
+    updatePreview();
+  } catch (err) {
+    label.textContent = '✗ Erro ao ler o arquivo — tente novamente';
+    label.style.borderColor = 'var(--danger)';
+    console.error(err);
+  }
+}
+
+// --- LER ARQUIVO .XLSX DE RESULTADOS ---
+async function handleFilePlanilha(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const label = document.getElementById('label-planilha');
+  label.textContent = `⏳ Lendo ${file.name}...`;
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const wb = XLSX.read(arrayBuffer, { type: 'array' });
+    const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('resultado')) || wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+    if (rows.length < 3) throw new Error('Planilha sem dados suficientes');
+
+    const headerRow = rows[0];
+    const gabRow = rows[1];
+
+    // Localizar colunas Q01, Q02...
+    const qCols = [];
+    headerRow.forEach((h, i) => {
+      if (h && /^Q\d+/i.test(String(h).trim())) qCols.push(i);
+    });
+    if (qCols.length === 0) throw new Error('Colunas de questão (Q01, Q02...) não encontradas');
+
+    const nq = qCols.length;
+    const gabarito = qCols.map(c => gabRow[c] ? String(gabRow[c]).trim().toUpperCase() : null);
+
+    // Detectar coluna de status (Presente/Ausente) se existir
+    const statusColIdx = headerRow.findIndex(h => h && /status/i.test(String(h)));
+
+    const acertos = new Array(nq).fill(0);
+    const notas = [];
+    let presentes = 0, ausentes = 0;
+
+    for (let r = 2; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row || row.every(c => c === null)) continue;
+
+      if (statusColIdx >= 0) {
+        const status = row[statusColIdx] ? String(row[statusColIdx]).trim() : '';
+        if (status === 'Ausente') { ausentes++; continue; }
+        if (status && status !== 'Presente') continue;
+      }
+
+      const respostas = qCols.map(c => row[c] ? String(row[c]).trim().toUpperCase() : null);
+      const temResposta = respostas.some(r => r);
+      if (!temResposta) continue;
+
+      let ac = 0;
+      for (let i = 0; i < nq; i++) {
+        if (respostas[i] && gabarito[i] && respostas[i] === gabarito[i]) { acertos[i]++; ac++; }
+      }
+      presentes++;
+      notas.push(Math.round(ac / nq * 1000) / 10);
+    }
+
+    if (notas.length === 0) throw new Error('Nenhum participante com respostas encontrado');
+
+    uploadState.planilha = { nq, gabarito, acertos, notas, presentes, ausentes };
+
+    label.innerHTML = `✓ <strong>${file.name}</strong><br><span style="font-size:11px;color:var(--text3);">${presentes} participantes · ${nq} questões</span>`;
+    label.style.borderColor = 'var(--accent)';
+    label.style.color = 'var(--accent)';
+
+    updatePreview();
+  } catch (err) {
+    label.textContent = `✗ ${err.message || 'Erro ao ler a planilha'}`;
+    label.style.borderColor = 'var(--danger)';
+    console.error(err);
+  }
+}
+
+function updatePreview() {
+  const box = document.getElementById('preview-box');
+  const content = document.getElementById('preview-content');
+  const btn = document.getElementById('btn-importar');
+
+  if (!uploadState.planilha) { box.style.display = 'none'; return; }
+
+  const p = uploadState.planilha;
+  const media = Math.round(p.notas.reduce((s,v) => s+v, 0) / p.notas.length * 10) / 10;
+  const discInfo = uploadState.questoesDisc
+    ? `<span style="color:var(--success);">✓ Disciplinas serão classificadas automaticamente pelas faixas fixas</span>`
+    : `<span style="color:var(--warning);">⚠ Sem o arquivo de questões, disciplina ficará "A definir" para todas as questões</span>`;
+
+  content.innerHTML = `
+    <strong>${p.presentes}</strong> participantes processados (${p.ausentes} ausentes detectados)<br>
+    <strong>${p.nq}</strong> questões com gabarito identificado<br>
+    Média geral calculada: <strong>${media}%</strong><br>
+    ${discInfo}
+  `;
+  box.style.display = 'block';
+  btn.style.opacity = '1';
+  btn.style.pointerEvents = 'auto';
+}
+
+// --- IMPORTAR NOVA EDIÇÃO A PARTIR DOS ARQUIVOS ---
+function importarEdicaoArquivos() {
+  const label = document.getElementById('new-label').value.trim();
+  const dataStr = document.getElementById('new-data').value;
+
+  if (!label || !dataStr) { showMsg('Preencha o nome e a data da edição.', 'error'); return; }
+  if (!uploadState.planilha) { showMsg('Anexe a planilha de resultados (.xlsx) antes de importar.', 'error'); return; }
+
+  const p = uploadState.planilha;
+  const nq = p.nq;
+  const notas = p.notas;
+  const n = notas.length;
+
+  const mediaCalc = notas.reduce((s,v) => s+v, 0) / n;
+  const media = Math.round(mediaCalc * 10) / 10;
+  const sorted = [...notas].sort((a,b) => a-b);
+  const mediana = n % 2 === 0 ? (sorted[n/2-1]+sorted[n/2])/2 : sorted[Math.floor(n/2)];
+  const dp = Math.round(Math.sqrt(notas.reduce((s,v) => s+(v-mediaCalc)**2, 0)/n) * 10)/10;
+  const maximo = Math.max(...notas);
+  const minimo = Math.min(...notas);
+  const apr50 = notas.filter(v => v >= 50).length;
+  const apr70 = notas.filter(v => v >= 70).length;
+
+  const dist = {'0-20':0,'20-30':0,'30-40':0,'40-50':0,'50-60':0,'60-70':0,'70-80':0,'80+':0};
+  notas.forEach(v => {
+    if(v<20) dist['0-20']++; else if(v<30) dist['20-30']++; else if(v<40) dist['30-40']++;
+    else if(v<50) dist['40-50']++; else if(v<60) dist['50-60']++; else if(v<70) dist['60-70']++;
+    else if(v<80) dist['70-80']++; else dist['80+']++;
+  });
+
+  const questoes = p.gabarito.map((g, i) => {
+    const pct = Math.round(p.acertos[i] / n * 1000) / 10;
+    return { q: `Q${String(i+1).padStart(2,'0')}`, gab: g || '—', pct, dif: pct >= 70 ? 'Fácil' : pct >= 40 ? 'Média' : 'Difícil' };
+  });
+
+  const [y, m, d] = dataStr.split('-');
+  const dataFmt = `${d}/${m}/${y}`;
+  const newId = Math.max(...edicoes.map(e => e.id), 0) + 1;
+
+  const nova = {
+    id: newId, label, data: dataFmt, n_questoes: nq,
+    n_inscritos: n + p.ausentes, n_presentes: n, n_ausentes: p.ausentes,
+    stats: { n, media, mediana: Math.round(mediana*10)/10, dp, maximo, minimo, apr50, apr70, pct50: Math.round(apr50/n*1000)/10, pct70: Math.round(apr70/n*1000)/10 },
+    dist, questoes, notas
+  };
+
+  edicoes.push(nova);
+
+  // Gerar DISC_MAP e TEMA_MAP para a nova edição
+  const discArr = [];
+  const temaArr = [];
+  for (let i = 1; i <= nq; i++) {
+    discArr.push(disciplinaPorQuestao(i));
+    temaArr.push('A definir');
+  }
+  DISC_MAP[newId] = discArr;
+  TEMA_MAP[newId] = temaArr;
+
+  // Calcular DISC_DIST
+  const distDisc = {};
+  discArr.forEach(d => { distDisc[d] = (distDisc[d] || 0) + 1; });
+  DISC_DIST[newId] = distDisc;
+
+  saveData();
+  updateFooter();
+
+  // Reset do formulário
+  document.getElementById('new-label').value = '';
+  document.getElementById('new-data').value = '';
+  document.getElementById('file-questoes').value = '';
+  document.getElementById('file-planilha').value = '';
+  document.getElementById('label-questoes').innerHTML = 'Clique para selecionar o .docx';
+  document.getElementById('label-questoes').style.borderColor = '';
+  document.getElementById('label-questoes').style.color = '';
+  document.getElementById('label-planilha').innerHTML = 'Clique para selecionar o .xlsx';
+  document.getElementById('label-planilha').style.borderColor = '';
+  document.getElementById('label-planilha').style.color = '';
+  document.getElementById('preview-box').style.display = 'none';
+  document.getElementById('btn-importar').style.opacity = '0.5';
+  document.getElementById('btn-importar').style.pointerEvents = 'none';
+  uploadState = { questoesDisc: null, planilha: null, nq: null };
+
+  showMsg(`✓ ${label} importada com sucesso! ${n} participantes processados e disciplinas classificadas automaticamente. Clique em "Baixar arquivo atualizado" para publicar.`, 'success');
+  document.getElementById('btn-exportar').style.display = 'inline-block';
+}
+
+function exportarHTML() {
+  // Pega o HTML completo da página atual
+  let htmlAtual = document.documentElement.outerHTML;
+
+  // Substitui os DADOS_INICIAIS pelo estado atual das edições
+  const dadosJSON = JSON.stringify(edicoes, null, 2);
+  htmlAtual = htmlAtual.replace(
+    /const DADOS_INICIAIS = \[[\s\S]*?\];/,
+    `const DADOS_INICIAIS = ${dadosJSON};`
+  );
+
+  // Substitui DISC_MAP, DISC_DIST e TEMA_MAP (podem ter novas edições adicionadas em runtime)
+  htmlAtual = htmlAtual.replace(
+    /const DISC_MAP = \{[\s\S]*?\};/,
+    `const DISC_MAP = ${JSON.stringify(DISC_MAP, null, 2)};`
+  );
+  htmlAtual = htmlAtual.replace(
+    /const DISC_DIST = \{[\s\S]*?\};/,
+    `const DISC_DIST = ${JSON.stringify(DISC_DIST, null, 2)};`
+  );
+  htmlAtual = htmlAtual.replace(
+    /const TEMA_MAP = \{[\s\S]*?\};/,
+    `const TEMA_MAP = ${JSON.stringify(TEMA_MAP, null, 2)};`
+  );
+
+  // Gera o download
+  const blob = new Blob([htmlAtual], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'index.html';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showMsg('✓ Arquivo "index.html" baixado! Faça o upload no GitHub para publicar.', 'success');
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('import-msg');
+  el.textContent = text;
+  el.style.display = 'block';
+  el.style.background = type === 'success' ? 'var(--success-bg)' : 'var(--danger-bg)';
+  el.style.color = type === 'success' ? 'var(--success)' : 'var(--danger)';
+  el.style.border = '1px solid ' + (type === 'success' ? 'rgba(26,122,74,0.3)' : 'rgba(192,57,43,0.3)');
+  setTimeout(() => { el.style.display = 'none'; }, 8000);
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function updateFooter() {
+  document.getElementById('footer-edicoes').textContent = `${edicoes.length} edição${edicoes.length!==1?'ões':''} registrada${edicoes.length!==1?'s':''}`;
+  document.getElementById('footer-data').textContent = new Date().toLocaleDateString('pt-BR');
+}
+
+
+// --- DISCIPLINAS ---
+let currentEdDisc = '1';
+
+function selectEdDisc(id, btn) {
+  currentEdDisc = id;
+  document.querySelectorAll('#ed-tabs-disc .ed-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDisciplinasPage();
+}
+
+function getDiscData(edId) {
+  const e = edicoes.find(e => String(e.id) === edId);
+  if (!e) return null;
+  const discMap = DISC_MAP[e.id] || [];
+  const discDist = DISC_DIST[e.id] || {};
+  
+  // Calcular acerto por disciplina
+  const acertosPorDisc = {};
+  const totalPorDisc = {};
+  
+  e.questoes.forEach((q, idx) => {
+    const disc = discMap[idx] || 'Outras';
+    if (!disc) return;
+    if (!acertosPorDisc[disc]) { acertosPorDisc[disc] = 0; totalPorDisc[disc] = 0; }
+    acertosPorDisc[disc] += q.pct;
+    totalPorDisc[disc]++;
+  });
+  
+  const result = {};
+  const allDiscs = new Set([...Object.keys(discDist), ...Object.keys(totalPorDisc)]);
+  allDiscs.forEach(disc => {
+    result[disc] = {
+      qtd: discDist[disc] || totalPorDisc[disc] || 0,
+      mediaAcerto: totalPorDisc[disc] ? Math.round(acertosPorDisc[disc] / totalPorDisc[disc] * 10) / 10 : 0
+    };
+  });
+  
+  return result;
+}
+
+const DISC_COLORS = {
+  'Ética e Estatuto': '#2D5BE3',
+  'Direito do Trabalho': '#e8922a',
+  'Direito Civil': '#1a7a4a',
+  'Direito Penal': '#c0392b',
+  'Direito Constitucional': '#8e44ad',
+  'Direito Tributário': '#16a085',
+  'Direito Empresarial': '#d35400',
+  'Direito Administrativo': '#2980b9',
+  'Direito Processual Civil': '#27ae60',
+  'Direito Processual Penal': '#e74c3c',
+  'Direito do Consumidor': '#f39c12',
+  'Direito Internacional': '#7f8c8d',
+  'Outras': '#bdc3c7'
+};
+
+function renderDisciplinasPage() {
+  if (currentEdDisc === 'all') {
+    renderDiscComparativo();
+    renderDiscQtdChart(null);
+    renderDiscAcertoChart(null);
+    renderDiscTable(null);
+  } else {
+    const data = getDiscData(currentEdDisc);
+    const ed = edicoes.find(e => String(e.id) === currentEdDisc);
+    renderDiscQtdChart(data, ed);
+    renderDiscAcertoChart(data, ed);
+    renderDiscTable(data, ed);
+    renderDiscComparativo();
+  }
+}
+
+function renderDiscQtdChart(data, ed) {
+  destroyChart('chartDiscQtd');
+  if (!data) return;
+  const sorted = Object.entries(data).sort((a,b) => b[1].qtd - a[1].qtd);
+  const labels = sorted.map(([d]) => d.replace('Direito ', 'D. ').replace('Ética e Estatuto','Ética'));
+  const values = sorted.map(([,v]) => v.qtd);
+  const colors = sorted.map(([d]) => DISC_COLORS[d] || '#888');
+  charts['chartDiscQtd'] = new Chart(document.getElementById('chartDiscQtd'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Questões', data: values, backgroundColor: colors, borderRadius: 4 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+}
+
+function renderDiscAcertoChart(data, ed) {
+  destroyChart('chartDiscAcerto');
+  if (!data) return;
+  const sorted = Object.entries(data).sort((a,b) => b[1].mediaAcerto - a[1].mediaAcerto);
+  const labels = sorted.map(([d]) => d.replace('Direito ', 'D. ').replace('Ética e Estatuto','Ética'));
+  const values = sorted.map(([,v]) => v.mediaAcerto);
+  const colors = values.map(v => v >= 60 ? '#1a7a4a' : v >= 40 ? '#e8922a' : '#c0392b');
+  charts['chartDiscAcerto'] = new Chart(document.getElementById('chartDiscAcerto'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: '% acerto médio', data: values, backgroundColor: colors, borderRadius: 4 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } } }
+  });
+}
+
+function getTemasForDisc(edId, disc) {
+  const temaArr = TEMA_MAP[parseInt(edId)] || [];
+  const discArr = DISC_MAP[parseInt(edId)] || [];
+  const e = edicoes.find(e => String(e.id) === edId);
+  if (!e) return [];
+  const temas = {};
+  e.questoes.forEach((q, idx) => {
+    if (discArr[idx] === disc) {
+      const tema = temaArr[idx];
+      if (tema) {
+        if (!temas[tema]) temas[tema] = { count: 0, totalPct: 0 };
+        temas[tema].count++;
+        temas[tema].totalPct += q.pct;
+      }
+    }
+  });
+  return Object.entries(temas)
+    .map(([t, v]) => ({ tema: t, count: v.count, avgPct: Math.round(v.totalPct / v.count * 10) / 10 }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function renderDiscTable(data, ed) {
+  const wrap = document.getElementById('disc-table-wrap');
+  if (!data) { wrap.innerHTML = '<p style="color:var(--text3);font-size:13px;padding:16px;">Selecione uma edição específica para ver a tabela detalhada.</p>'; return; }
+  
+  const sorted = Object.entries(data).sort((a,b) => b[1].qtd - a[1].qtd);
+  
+  let html = '<table class="q-table" style="font-size:13px;">';
+  html += '<thead><tr><th>Disciplina</th><th>Questões</th><th>Temas cobrados</th><th>Acerto médio</th><th>Classificação</th></tr></thead><tbody>';
+  
+  sorted.forEach(([disc, v]) => {
+    const cls = v.mediaAcerto >= 60 ? { badge: 'facil', txt: 'Ponto Forte' } : v.mediaAcerto >= 40 ? { badge: 'media', txt: 'Regular' } : { badge: 'dificil', txt: 'Ponto Fraco' };
+    const barColor = v.mediaAcerto >= 60 ? '#1a7a4a' : v.mediaAcerto >= 40 ? '#e8922a' : '#c0392b';
+    const temas = getTemasForDisc(currentEdDisc, disc);
+    const temasHtml = temas.map(t => {
+      const tColor = t.avgPct >= 60 ? 'var(--success)' : t.avgPct >= 40 ? 'var(--warning)' : 'var(--danger)';
+      return `<div style="font-size:11px;padding:2px 0;color:var(--text2);">
+        <span style="color:${tColor};font-weight:600;">${t.avgPct}%</span> · ${t.tema}
+      </div>`;
+    }).join('');
+    html += `<tr>
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${DISC_COLORS[disc]||'#888'};margin-right:8px;vertical-align:middle;"></span><strong>${disc}</strong></td>
+      <td style="font-weight:600;text-align:center;">${v.qtd}</td>
+      <td style="min-width:220px;">${temasHtml || '<span style="color:var(--text3);font-size:11px;">—</span>'}</td>
+      <td>
+        <div class="bar-wrap">
+          <div class="bar-bg"><div class="bar-fill" style="width:${v.mediaAcerto}%;background:${barColor};"></div></div>
+          <span class="pct-label" style="color:${barColor};">${v.mediaAcerto}%</span>
+        </div>
+      </td>
+      <td><span class="badge ${cls.badge}">${cls.txt}</span></td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function renderDiscComparativo() {
+  destroyChart('chartDiscComp');
+  
+  const allDiscs = new Set();
+  edicoes.forEach(e => {
+    const discMap = DISC_MAP[e.id] || [];
+    discMap.forEach(d => { if (d) allDiscs.add(d); });
+  });
+  const discs = [...allDiscs].sort();
+  const shortDiscs = discs.map(d => d.replace('Direito ', 'D. ').replace('Ética e Estatuto','Ética'));
+  
+  const edColors = ['rgba(45,91,227,0.8)', 'rgba(192,57,43,0.8)', 'rgba(26,122,74,0.8)'];
+  
+  const datasets = edicoes.map((e, i) => {
+    const data = getDiscData(String(e.id));
+    const values = discs.map(d => data && data[d] ? data[d].mediaAcerto : 0);
+    return { label: e.label, data: values, backgroundColor: edColors[i % edColors.length], borderRadius: 3 };
+  });
+  
+  const wrapH = Math.max(280, discs.length * 36 + 80);
+  document.getElementById('chartDiscComp').parentElement.style.height = wrapH + 'px';
+  
+  charts['chartDiscComp'] = new Chart(document.getElementById('chartDiscComp'), {
+    type: 'bar',
+    data: { labels: shortDiscs, datasets },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } } },
+      scales: { x: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+    }
+  });
+}
+
+
+// --- INIT ---
+loadData();
+updateFooter();
+currentEdQ = String(edicoes[0]?.id || '1');
+renderVisaoGeral();
+</script>
+</body>
+</html>
